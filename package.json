@@ -1,0 +1,14 @@
+{
+  "name": "brollss-mcp",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "validate": "node scripts/check.mjs",
+    "test": "node --test \"test/*.test.mjs\"",
+    "check": "npm test && npm run validate"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

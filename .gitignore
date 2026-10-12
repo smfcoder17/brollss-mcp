@@ -1,0 +1,15 @@
+# Environment and secrets
+.env
+.env.*
+
+# OS and editor
+.DS_Store
+Thumbs.db
+*.swp
+
+# Node
+node_modules/
+
+# Logs and temp
+*.log
+tmp/

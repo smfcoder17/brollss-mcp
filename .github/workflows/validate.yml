@@ -1,0 +1,52 @@
+# Validates the plugin in its public repository (smfcoder17/brollss-mcp).
+#
+# This file only runs there. In the Brollss app repository, where the plugin is
+# written, .github/workflows/brollss-plugin.yml at the root runs the same checks.
+#
+# Adapted from descriptinc/descript-mcp (.github/workflows/validate.yml), Apache License 2.0.
+
+name: validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Parse all JSON files
+        run: |
+          set -e
+          for f in $(git ls-files '*.json'); do
+            node -e "JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8'))" "$f" && echo "ok $f"
+          done
+
+      - name: Syntax-check scripts
+        run: for f in scripts/*.mjs; do node --check "$f" && echo "ok $f"; done
+
+      - name: Validator regression tests
+        run: npm test
+
+      # Cursor manifest, portable and OpenAI manifest, MCP URL, tool names
+      # against tools.json, nothing internal in the files.
+      - name: Validate the plugin
+        run: npm run validate
+
+      # The CLI version is pinned: a validator that changes under us would turn
+      # the job red for no change of ours. Raise it on purpose.
+      - name: Validate the Claude Code plugin
+        run: |
+          npm install -g @anthropic-ai/claude-code@2.1.293
+          claude plugin validate .
+          claude plugin validate .claude-plugin/plugin.json

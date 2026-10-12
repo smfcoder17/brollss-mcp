@@ -1,0 +1,13 @@
+{
+  "name": "brollss",
+  "owner": {
+    "name": "Brollss"
+  },
+  "plugins": [
+    {
+      "name": "brollss",
+      "source": ".",
+      "description": "Fixture plugin."
+    }
+  ]
+}

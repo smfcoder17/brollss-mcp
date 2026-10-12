@@ -1,0 +1,14 @@
+Brollss MCP plugin
+Copyright 2026 Brollss
+
+This product includes software adapted from Descript MCP
+(https://github.com/descriptinc/descript-mcp), licensed under the
+Apache License, Version 2.0:
+
+  Descript MCP
+  Copyright 2026 Descript, Inc.
+
+The adapted files are scripts/mini-yaml.mjs, scripts/validate-plugin.mjs,
+scripts/validate-portable-plugin.mjs, scripts/check-mcp-url.mjs,
+test/validate-portable-plugin.test.mjs and .github/workflows/validate.yml.
+Each one says so in its header.

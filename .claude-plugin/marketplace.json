@@ -1,0 +1,14 @@
+{
+  "name": "brollss",
+  "description": "Import a video, cut it, zoom, draw scenes, add captions, music and sound effects, then check the edit in Brollss, from your agent.",
+  "owner": {
+    "name": "Brollss"
+  },
+  "plugins": [
+    {
+      "name": "brollss",
+      "source": ".",
+      "description": "Import a video, cut it, zoom, draw scenes, add captions, music and sound effects, then check the edit in Brollss, from your agent."
+    }
+  ]
+}

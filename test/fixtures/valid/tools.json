@@ -1,0 +1,21 @@
+{
+  "server": {
+    "name": "brollss",
+    "url": "https://brollss.com/api/mcp"
+  },
+  "tools": [
+    {
+      "name": "get_project_state",
+      "description": "Fixture tool.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectId": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  ],
+  "prompts": []
+}

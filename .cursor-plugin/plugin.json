@@ -1,0 +1,32 @@
+{
+  "name": "brollss",
+  "displayName": "Brollss",
+  "version": "0.1.0",
+  "description": "Import a video, cut it, zoom, draw scenes, add captions, music and sound effects, then check the edit in Brollss, from your agent.",
+  "author": {
+    "name": "Brollss"
+  },
+  "homepage": "https://brollss.com",
+  "repository": "https://github.com/smfcoder17/brollss-mcp",
+  "license": "Apache-2.0",
+  "keywords": [
+    "brollss",
+    "video",
+    "editing",
+    "talking-head",
+    "transcript",
+    "b-roll",
+    "scenes",
+    "zoom",
+    "captions",
+    "music",
+    "sound-effects",
+    "oauth",
+    "mcp"
+  ],
+  "category": "integrations",
+  "logo": "assets/logo.svg",
+  "mcpServers": "./mcp.json",
+  "skills": "./skills",
+  "rules": "./rules"
+}

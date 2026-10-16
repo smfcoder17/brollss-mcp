@@ -19,7 +19,8 @@ This skill reads and looks. It writes nothing. To fix what it finds, follow the 
 2. `check_edit`. Read its three parts:
    - `timeline`: what gets in each other's way (two scenes at once, a zoom under a full-frame scene, captions under a scene, a scene left outside the montage or on cut words, a zoom of 0 s, a captioned passage that was cut), each with its montage seconds and its fix.
    - `scenes`: each scene's pace. An HTML page played faster or slower than drawn needs a redraw for its length.
-   - `rubric`: hook, visual density, longest stretch without a visual, captions, retakes left, mid-sentence joins, zooms, music. A long stretch without a visual comes with the calm bands of the picture where a `P9` scene can go.
+   - `rubric`: hook, too many visuals, visuals on each other, captions, retakes left, mid-sentence joins, zooms, music.
+   - `notes`: information, not points to fix. A long stretch without a visual comes there with the calm bands of the picture where a `P9` scene can go; the visual density and pace are in the rubric's `notes`. No number of visuals per minute is required.
 3. `check_audio`: the music against the voice in the pauses and under the voice, and the sound effects too loud or too close.
 4. `look_at_montage` on the first 5 s, the last 5 s, every scene and zoom, and every moment `check_edit` names. Looks render one at a time, 5 to 60 s each. Say what each picture shows: the face covered or not, the text cut or not, a scene that does not match what is said.
 5. `get_scene` on a scene that looks wrong: its text, its language against the video's, its status and the reasons the code gave.

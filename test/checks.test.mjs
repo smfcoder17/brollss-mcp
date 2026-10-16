@@ -89,9 +89,10 @@ describe("checkToolNames", () => {
   });
 
   it("rejects a tool the server does not offer", async () => {
-    const dir = await pluginCopy((d) => fs.appendFile(path.join(d, "skills/add-scenes/SKILL.md"), "\nThen call `generate_image` for a picture.\n"));
+    // `generate_image` served here until the server offered it (#514, step 3); a made-up name keeps the case true.
+    const dir = await pluginCopy((d) => fs.appendFile(path.join(d, "skills/add-scenes/SKILL.md"), "\nThen call `make_thumbnail` for a cover.\n"));
     const errors = await checkToolNames(dir);
-    assert.ok(errors.some((e) => /skills\/add-scenes\/SKILL\.md names `generate_image`/.test(e)), errors.join("\n"));
+    assert.ok(errors.some((e) => /skills\/add-scenes\/SKILL\.md names `make_thumbnail`/.test(e)), errors.join("\n"));
   });
 
   it("rejects a skill that still names a tool once tools.json drops it", async () => {

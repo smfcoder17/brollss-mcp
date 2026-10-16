@@ -4,7 +4,7 @@ Edit talking-head videos in Brollss from your agent. Import a video, cut it, ope
 
 This repository is a plugin for Claude Code, Cursor and Codex. Installing it brings three things together: the connection to the Brollss MCP server, a rule with the working habits that held up in real editing sessions, and five skills that walk the agent through a whole edit.
 
-> **The hosted server is in preparation.** `https://brollss.com/api/mcp` is not online yet. This plugin is published ahead of it; the setup below works as soon as the server is. Follow https://brollss.com/mcp for its opening.
+The hosted server is online at `https://brollss.com/api/mcp`. The setup below works today.
 
 Documentation of the server and its tools: https://brollss.com/mcp
 
@@ -20,17 +20,17 @@ https://brollss.com/api/mcp
 
 The tools, by family. `tools.json` lists each one with its description and its parameters, as the server declares them.
 
-- **Account and projects.** `whoami`, `list_projects`, `get_project_state`, `clone_project`, `create_checkpoint`, `get_editing_guide`.
+- **Account and projects.** `whoami`, `list_projects`, `get_project_state`, `clone_project` (a fresh copy by default: the video and the transcript, as right after the transcription), `start_over` (puts a project back to that state, with `confirm: true`), `create_checkpoint`, `get_editing_guide`.
 - **Import.** `import_media` (a file sent from your device, or a direct link), then `wait_for_job` until the transcript and the video are in the project. `get_job` reads where an import stands without waiting; `report_upload_status` stops an import whose upload failed.
 - **Transcript and cuts.** `transcript_outline`, `read_transcript`, `search_transcript`, `find_hesitations`, `strike_words`, `restore_words`, `correct_words`, `move_passage`, `set_silences`.
 - **Looking.** `look_at_source` returns a frame of the raw video, `look_at_montage` the final picture as the viewer sees it. `check_edit` checks the whole edit by code, `check_audio` measures the mix.
 - **Zooms and marks.** `list_zooms`, `add_zoom` (with a zone of the screen), `update_zoom`, `remove_zooms`, `add_marker`.
-- **Scenes.** `list_layouts`, `get_scene_contract`, `get_scene_examples`, `get_scene_brief`, `measure_scene`, `insert_scene`, `get_scene`, `set_scene_text`, `apply_layout`, `move_broll`, `set_duration`, `set_broll_pip`, `remove_brolls`.
+- **Scenes.** `list_layouts`, `get_scene_contract`, `get_scene_examples`, `get_scene_brief`, `measure_scene`, `insert_scene`, `get_scene`, `set_scene_text`, `apply_layout`, `set_layout`, `move_broll`, `set_duration`, `set_broll_pip`, `remove_brolls`.
 - **Captions and audio.** `get_captions`, `set_captions`, `add_caption`, `list_music`, `set_music`, `list_sfx`, `add_sfx`, `remove_sfx`.
 
 The server also offers a prompt, `monter_une_video`, that starts a full edit of one project.
 
-No tool calls a Brollss model, and none spends credits. The agent you connect does the thinking and the drawing; Brollss does the cutting, the measuring and the rendering. Exporting happens in the Brollss Studio: the server has no export tool yet.
+Three tools spend Brollss credits, at the app's prices: `generate_image` (50 credits per image), the transcription of `import_media` (10 credits per started 2 minutes of media) and `export_video` (10 credits per started minute of the edited video). The agent you connect does the thinking and the drawing; Brollss does the cutting, the measuring and the rendering.
 
 ### Rule
 

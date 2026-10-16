@@ -7,7 +7,7 @@ description: Draw animated scenes (B-rolls) for a Brollss project yourself, meas
 
 ## When to use
 
-- `check_edit` says the video lacks visuals, or names a long stretch without one.
+- An idea said in the video needs a picture. `check_edit` gives the long stretches without a visual in its `notes`, for information: the speaker alone on screen is a valid choice.
 - The user asks for a scene on a passage, or wants an existing scene changed.
 - The speaker points at the screen and a moving mark (an arrow that draws itself, a blinking highlight) says it better than `add_marker`.
 

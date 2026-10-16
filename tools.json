@@ -7,13 +7,15 @@
   "tools": [
     {
       "name": "whoami",
-      "description": "Who this connection edits as: the account email, its plan, its credits, and what this server may spend. On this local server nothing is paid: every tool is free and the process cannot reach a paid model (paidCalls stays at 0).",
+      "title": "Show my account",
+      "description": "Who this connection edits as: the account email, its plan, its credits (as the app shows them), what this server may spend, and how many check renders are left today. Every tool is free except generate_image, which takes 50 credits per image from this account, the transcription of import_media (10 credits per started 2 minutes of media) and export_video (10 credits per started minute of the edited video). availableHere says whether this server reaches the stock libraries (search_stock) and the image model (generate_image); when it cannot reach the image model (a local server never can), generate_image is refused before any charge. The renders that check your work (measure_scene, look_at_montage, look_at_source, the measure of check_edit, check_audio) are free within a daily allowance per account, back at midnight UTC.",
       "inputSchema": {
         "type": "object",
         "properties": {},
         "additionalProperties": false
       },
       "annotations": {
+        "title": "Show my account",
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
@@ -21,7 +23,8 @@
     },
     {
       "name": "list_projects",
-      "description": "The account's projects (its own and those shared with it), most recently CREATED first: id, name, createdAt, updatedAt, length, format, whether it has a transcript and a video, your role. Copies often share a name: createdAt tells them apart. Filter by name with query.",
+      "title": "List projects",
+      "description": "The account's projects (its own, those shared with it and its teams'), most recently CREATED first, searched and paged over ALL of them: id, name, createdAt, updatedAt, sourceDurationSec (the length of the source video, null when unknown), format, whether it has a transcript and a video, your role, and copiedFrom (the original's id and name) for a copy. Filter by name with query (part of the name, any case). total is how many match; when nextCursor is not null, pass it back as cursor for the next page. The edited length of a project is in get_project_state (montageDurationSec).",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -31,15 +34,21 @@
             "maxLength": 80
           },
           "limit": {
-            "description": "How many (default 20).",
+            "description": "How many per page (default 20, at most 50).",
             "type": "integer",
             "minimum": 1,
             "maximum": 50
+          },
+          "cursor": {
+            "description": "The nextCursor of the previous page.",
+            "type": "string",
+            "maxLength": 200
           }
         },
         "additionalProperties": false
       },
       "annotations": {
+        "title": "List projects",
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
@@ -47,6 +56,7 @@
     },
     {
       "name": "get_project_state",
+      "title": "Get project state",
       "description": "Open a project and read its state: format, montage length, transcript size and how much is cut, every B-roll and every zoom with its id and its moment (word keys fromKey/toKey, which the gestures take, and montage seconds, which look_at_montage takes), captions, music, silences, and editRevision (give it back as expectedRevision when you write). Read it first, and again after a conflict.",
       "inputSchema": {
         "type": "object",
@@ -64,6 +74,7 @@
         "additionalProperties": false
       },
       "annotations": {
+        "title": "Get project state",
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
@@ -71,7 +82,8 @@
     },
     {
       "name": "clone_project",
-      "description": "Copy a project you own into a new project of the same account (transcript, cuts, B-rolls, zooms, video), and return the new id. Edit the clone, not the original, unless the creator asked otherwise. Counts against the plan's number of projects.",
+      "title": "Clone project",
+      "description": "Copy a project you own into a new project of the same account, and return the new id and name. Two copies, the same as the two choices of the app's Duplicate action. By default (fresh: true) it is \"Duplicate from scratch\": the copy starts as right after the transcription: the video, its proxy, what the app measured of it (face, camera card, what the source shows) and the transcript; no cut, no moved passage, no scene or other B-roll, no zoom, no subtitle, no music, no sound effect, silences as recorded. This is the copy for a full edit from scratch. fresh: false is \"Duplicate\": the whole edit comes along too (cuts, moved passages, B-rolls with their sound effects, zooms, subtitles, music), only when the creator asks to continue an existing edit on a copy. Give the copy a clear name (for example \"<video name> - <what this edit is>\"): the creator finds it by that name. Edit the copy, not the original, unless the creator asked otherwise. Both copies follow the limits of the account, exactly like creating a project in the app: the plan's number of projects, the storage space, only the project's owner can copy it, and a paused or suspended account cannot. A refused copy says why, and nothing is created.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -82,10 +94,14 @@
             "description": "The project id (from list_projects or clone_project)."
           },
           "name": {
-            "description": "The clone's name (default: the original's name plus « (MCP) »).",
+            "description": "The copy's name, clear for the creator, kept as given (default: the app's numbered name, « <name> (copie 2) », « (copie 3) »… or « (copy 2) » in English).",
             "type": "string",
             "minLength": 1,
             "maxLength": 120
+          },
+          "fresh": {
+            "description": "true (default): \"Duplicate from scratch\", the copy starts as right after the transcription (the video and its transcript), nothing of the edit comes along. false: \"Duplicate\", the whole edit comes along.",
+            "type": "boolean"
           }
         },
         "required": [
@@ -94,13 +110,51 @@
         "additionalProperties": false
       },
       "annotations": {
+        "title": "Clone project",
         "readOnlyHint": false,
         "destructiveHint": false,
         "openWorldHint": false
       }
     },
     {
+      "name": "start_over",
+      "title": "Start the edit over",
+      "description": "Put a project back as right after the transcription: the video, its proxy, what the app measured of it (face, camera card, what the source shows) and the transcript; no cut, no moved passage, no scene or other B-roll, no zoom, no subtitle, no music, no sound effect, silences as recorded, by the same code as the app's \"Start over\" box: every cut word restored, moved passages back in place, corrected words and hand-set word timings undone, every B-roll (with its sound effects) and every zoom removed, subtitles, background music and voice settings cleared. The video and the transcript stay. Destructive: it needs confirm: true, and a checkpoint is saved first so the creator can restore the edit. To keep the original untouched, prefer clone_project, which makes a fresh copy by default.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "description": "The project id (from list_projects or clone_project)."
+          },
+          "expectedRevision": {
+            "description": "The editRevision you last read; a different one means the project changed: nothing is applied.",
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "confirm": {
+            "description": "true: the creator asked to start this project over.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "projectId"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "title": "Start the edit over",
+        "readOnlyHint": false,
+        "destructiveHint": true,
+        "openWorldHint": false
+      }
+    },
+    {
       "name": "create_checkpoint",
+      "title": "Save a checkpoint",
       "description": "Save a checkpoint of the project now, named « MCP · <label> », that the creator can restore from the Studio. One is saved for you before your first write on each project; save another before a risky series of gestures. At most 8 MCP checkpoints are kept per project.",
       "inputSchema": {
         "type": "object",
@@ -123,6 +177,7 @@
         "additionalProperties": false
       },
       "annotations": {
+        "title": "Save a checkpoint",
         "readOnlyHint": false,
         "destructiveHint": false,
         "openWorldHint": false
@@ -130,6 +185,7 @@
     },
     {
       "name": "get_editing_guide",
+      "title": "Read the editing guide",
       "description": "The editing guide: how to edit a video in Brollss with THESE tools, the style guides (pass style: face-camera, tutoriel-ecran, podcast-deux-voix or presentation-diapositives, the one that fits the video), the chapters of the editing craft (pass topic), and, with projectId, the creator's standing instructions (style, preferences). Read it before the first edit.",
       "inputSchema": {
         "type": "object",
@@ -154,14 +210,83 @@
         "additionalProperties": false
       },
       "annotations": {
+        "title": "Read the editing guide",
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
       }
     },
     {
+      "name": "list_favorites",
+      "title": "List favorites",
+      "description": "The creator's favourites, marked in the Studio: music tracks, sound effects, elements (text, shapes, logos) and subtitle styles, most recent first. Each comes ready to use: its id, its name, its tags for a track, and `placeWith`, the tool and argument that place it (add_music or set_music with trackId, add_sfx with sound, set_captions with style). Look at them BEFORE choosing a track, an effect, an element or a subtitle style, and prefer them when they fit the video. `kind` narrows the list. Free.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "description": "Only this kind: music, sfx, element or caption-style.",
+            "type": "string",
+            "enum": [
+              "music",
+              "sfx",
+              "element",
+              "caption-style"
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "title": "List favorites",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "set_favorite",
+      "title": "Set a favorite",
+      "description": "Add or remove one of the creator's favourites, like the star in the Studio: `kind` (music, sfx, element, caption-style) and `id` (a track id from list_music, a sound id from list_sfx, an element id from list_favorites such as text:title or shape:arrow, a style id from get_captions), `favorite` true to add, false to remove. Only when the creator asks. At most 60 per kind. Free.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string",
+            "enum": [
+              "music",
+              "sfx",
+              "element",
+              "caption-style"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "favorite": {
+            "type": "boolean",
+            "description": "true adds it, false removes it."
+          }
+        },
+        "required": [
+          "kind",
+          "id",
+          "favorite"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "title": "Set a favorite",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
       "name": "import_media",
-      "description": "Create a new project from a video or audio file, the way the app's import does it, and return at once job_id, project_id and project_url. One source:\n- add_media (direct upload): {\"<file name>\": {\"content_type\": \"video/mp4\", \"file_size\": <bytes>}}. The result gives upload_urls[<file name>] = {upload_url, asset_id, headers}: PUT the raw bytes of the file to upload_url with the header Content-Type: application/octet-stream (no form, no encoding); the size must equal file_size, and the address works once. If the PUT fails, call report_upload_status with status failed.\n- add_media with {\"<name>\": {\"url\": \"https://...\"}}, or url: a direct link to a media file (not a page that plays one).\n- path: an absolute path to a file, or to a folder (with file naming the one to take), ONLY on the local server; the original is copied, never moved.\nThen call wait_for_job with job_id: the server transcribes the voice (on its own machine or its own transcription worker, never a third party) and puts the transcript, the video, an editing proxy and a poster in the project. Then get_project_state on project_id and edit. The plan's limits apply exactly as in the app: number of projects, file size. Free: no credit. Never import again because a wait timed out: call wait_for_job again.",
+      "title": "Import media",
+      "description": "Create a new project from a video or audio file, the way the app's import does it, and return at once job_id, project_id and project_url. One source:\n- add_media (direct upload): {\"<file name>\": {\"content_type\": \"video/mp4\", \"file_size\": <bytes>}}. The result gives upload_urls[<file name>] = {upload_url, asset_id, headers}: PUT the raw bytes of the file to upload_url with the header Content-Type: application/octet-stream (no form, no encoding); the size must equal file_size, and the address works once. If the PUT fails, call report_upload_status with status failed.\n- add_media with {\"<name>\": {\"url\": \"https://...\"}}, or url: a direct link to a media file (not a page that plays one).\n- path: an absolute path to a file, or to a folder (with file naming the one to take), ONLY on the local server and ONLY inside a folder the creator allowed (a root of the MCP client, or --allow-dir when the local server is launched); the original is copied, never moved.\n- drop: true, when you cannot send the file yourself (a web chat with no terminal): the result gives drop_page_url, a Brollss page where the creator drops the file. Give that link to the creator, then wait_for_job. add_media also returns drop_page_url, for the same case.\nThen call wait_for_job with job_id: the server transcribes the voice (on its own machine or its own transcription worker, never a third party) and puts the transcript, the video, an editing proxy and a poster in the project. Then get_project_state on project_id and edit. Paid: the transcription costs 10 credits per started 2 minutes of media (a 9-minute video costs 50 credits), the same price as an import in the app, taken from this account when the file has arrived and before the transcription starts, and given back if it fails. Without enough credits the import stops with the reason. The plan's limits apply exactly as in the app: number of projects, file size. Never import again because a wait timed out: call wait_for_job again.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -225,7 +350,7 @@
                       "type": "string",
                       "minLength": 1,
                       "maxLength": 1024,
-                      "description": "Local server only: an absolute path to the file, or to a folder that holds it."
+                      "description": "Local server only: an absolute path to the file, or to a folder that holds it, inside a folder the creator allowed."
                     }
                   },
                   "required": [
@@ -243,7 +368,7 @@
             "format": "uri"
           },
           "path": {
-            "description": "Local server only: an absolute path to a media file, or to a folder that holds it.",
+            "description": "Local server only: an absolute path to a media file, or to a folder that holds it, inside a folder the creator allowed.",
             "type": "string",
             "minLength": 1,
             "maxLength": 1024
@@ -253,6 +378,10 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 255
+          },
+          "drop": {
+            "description": "true: the creator drops the file in a Brollss page (drop_page_url in the result). For a client that cannot send the file itself.",
+            "type": "boolean"
           },
           "language": {
             "description": "The spoken language (default: detected).",
@@ -278,6 +407,7 @@
         "additionalProperties": false
       },
       "annotations": {
+        "title": "Import media",
         "readOnlyHint": false,
         "destructiveHint": false,
         "openWorldHint": false
@@ -285,7 +415,8 @@
     },
     {
       "name": "get_job",
-      "description": "Where an import stands, now, without waiting: phase (uploading, copying, transcribing, delivering, ready, failed), progress {label, percent}, the step, the last log lines, the error in plain words when it failed, and the project once ready. wait_for_job waits.",
+      "title": "Check a job",
+      "description": "Where an import or an export stands, now, without waiting. An import: phase (uploading, copying, transcribing, delivering, ready, failed), progress {label, percent}, the step, the last log lines, the error in plain words when it failed, and the project once ready. An export (kind: export): phase (starting while its credits are taken, waiting_for_browser, preparing_scenes, browser_unsupported, assembling, ready, failed, cancelled), the scenes sent, export_page_url while the page is needed, download_url once ready, and the credits charged or given back. wait_for_job waits.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -293,7 +424,7 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 64,
-            "description": "The job_id import_media returned."
+            "description": "The job_id import_media or export_video returned."
           }
         },
         "required": [
@@ -302,6 +433,7 @@
         "additionalProperties": false
       },
       "annotations": {
+        "title": "Check a job",
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
@@ -309,7 +441,8 @@
     },
     {
       "name": "wait_for_job",
-      "description": "Wait for an import, up to wait_seconds (local server: default 600, at most 1800; hosted: default 120, at most 300), and return its state as get_job does. done: true when it is ready (then edit project_id) or failed (the error says why). Still running when the wait ends (timed_out: true): call wait_for_job again. Never import the file again because of a timeout: that would make a second project.",
+      "title": "Wait for a job",
+      "description": "Wait for an import or an export, up to wait_seconds (local server: default 600, at most 1800; hosted: default 120, at most 300), and return its state as get_job does. done: true when it is ready (an import: edit project_id; an export: download_url serves the MP4 for one hour, and a new call gives a fresh one) or failed or cancelled (the error says why, and whether the credits were given back). An export whose scenes render in a browser without display on this machine (headless: true, the local case) needs nothing from you: keep waiting. Otherwise, an export waiting for its page (phase waiting_for_browser) returns at once with export_page_url: open it yourself, then wait again. An export with a warning (its page is in a background tab, or no scene has moved for 5 minutes) returns at once too: do what the warning says, then wait again. Still running when the wait ends (timed_out: true): call wait_for_job again. Never import or export again because of a timeout: that would make a second project or a second charge.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -317,7 +450,7 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 64,
-            "description": "The job_id import_media returned."
+            "description": "The job_id import_media or export_video returned."
           },
           "wait_seconds": {
             "type": "integer",
@@ -331,6 +464,7 @@
         "additionalProperties": false
       },
       "annotations": {
+        "title": "Wait for a job",
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
@@ -338,6 +472,7 @@
     },
     {
       "name": "report_upload_status",
+      "title": "Report upload status",
       "description": "Say how a direct upload went: status failed (with error) when the PUT to upload_url did not succeed, so the import stops cleanly instead of waiting; status uploaded is optional (wait_for_job notices the file by itself). To retry a failed upload, call import_media again.",
       "inputSchema": {
         "type": "object",
@@ -346,7 +481,7 @@
             "type": "string",
             "minLength": 1,
             "maxLength": 64,
-            "description": "The job_id import_media returned."
+            "description": "The job_id import_media or export_video returned."
           },
           "media_id": {
             "type": "string",
@@ -380,6 +515,72 @@
         "additionalProperties": false
       },
       "annotations": {
+        "title": "Report upload status",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "export_video",
+      "title": "Export video",
+      "description": "Export the edited video as an MP4 the creator can download. PAID: 10 credits per started minute of the edited video (a 4 min 10 s montage costs 50 credits), the price of the Export button in the Studio, taken from this account. Two calls. Without confirm: nothing is charged; the result gives the price, the length and the number of scenes; tell the creator the price. With confirm: true: the credits are taken BEFORE anything starts, then the result gives export_page_url, a Brollss page that renders the scenes in the browser that opens it (no sign-in needed) and sends them to our server, which puts the video together. When this server runs on the creator's machine (the local server, or the app reached at an address of this machine), confirm: true opens that page itself in a browser without display on this machine, which renders the scenes until they are sent: you have nothing to open (the result says headless: true). Otherwise, or if that browser cannot start (the result says so), open it yourself: Open export_page_url YOURSELF, right away: in a visible tab in the foreground, with the machine's command, which opens the creator's own browser in front (Windows: start \"\" \"<url>\"; macOS: open \"<url>\"; Linux: xdg-open \"<url>\"), or in your own browser tool only if it shows a real visible tab that stays in front; or in a headless browser that you drive yourself (a headless Chrome renders the page normally). Never in a hidden or minimized window, nor a browser pane kept out of sight: a browser stops rendering a tab nobody sees, and the export stalls. Do not ask the creator to click it; ask them to open it only if you have no way at all to open a browser. Then call wait_for_job with job_id until done; at the end it gives download_url. The page must stay open, visible and in front while it prepares the scenes. A page not opened within 15 minutes, or on which no scene moves for 15 minutes (closed, hidden in a background tab, or stuck), cancels the export and gives the credits back; a failed export gives them back too, once. wait_for_job says when the page is in a background tab or no scene has moved for 5 minutes, and what to do. The same export already made is given back at once, free. The plan's watermark and quality apply, as in the Studio.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "description": "The project id (from list_projects or clone_project)."
+          },
+          "confirm": {
+            "description": "true to take the credits and start the export. Without it, only the price is returned.",
+            "type": "boolean"
+          },
+          "quality": {
+            "description": "Default standard. Capped by the project owner's plan, as in the Studio.",
+            "type": "string",
+            "enum": [
+              "draft",
+              "standard",
+              "high"
+            ]
+          }
+        },
+        "required": [
+          "projectId"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "title": "Export video",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "cancel_export",
+      "title": "Cancel export",
+      "description": "Stop an export started by export_video. Before the video is put together, it stops at once and the credits are given back; during the assembly, the assembly is asked to stop and the credits come back when it has. Only when the creator asks.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "description": "The job_id export_video returned."
+          }
+        },
+        "required": [
+          "job_id"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "title": "Cancel export",
         "readOnlyHint": false,
         "destructiveHint": false,
         "openWorldHint": false
@@ -387,6 +588,7 @@
     },
     {
       "name": "transcript_outline",
+      "title": "Outline the transcript",
       "description": "The outline of the WHOLE video: blocks of about 30 to 60 s with their time range, word keys, sentence count and first words. Cheap. Use it to plan the video; then read a block with read_transcript.",
       "inputSchema": {
         "type": "object",
@@ -407,6 +609,7 @@
         ]
       },
       "annotations": {
+        "title": "Outline the transcript",
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
@@ -414,10 +617,15 @@
     },
     {
       "name": "read_transcript",
-      "description": "Read the transcript in order, with a cursor: up to maxSentences sentences from a time (m:ss or seconds) or a word key, each as [m:ss] (first key..last key) text. The result gives `next`, where to continue, and what you have read of the whole video so far. A passage you already read is not sent again while the transcript is unchanged: write what matters in your notebook as you read.",
+      "title": "Read transcript",
+      "description": "Read the transcript in order, with a cursor: up to maxSentences sentences from a time (m:ss or seconds) or a word key, each as [m:ss] (first key..last key) text. The result gives `next`, where to continue (pass it as `from`: a long video reads page after page, past maxSentences), and what you have read of the whole video so far. `words: true` adds, under each sentence, the key of every word, to cut or correct inside a sentence. A passage you already read is not sent again while the transcript is unchanged: write what matters in your notebook as you read. On this server every time is a time of the MONTAGE; pass withSource: true to add the source time.",
       "inputSchema": {
         "type": "object",
         "properties": {
+          "withSource": {
+            "type": "boolean",
+            "description": "true to add the time in the SOURCE video next to each montage time (rarely needed: every tool takes montage times or word keys)."
+          },
           "projectId": {
             "type": "string",
             "description": "The project id (from list_projects or clone_project)."
@@ -458,6 +666,10 @@
           "again": {
             "description": "true to get a passage you already read sent again, only when you really lost it.",
             "type": "boolean"
+          },
+          "words": {
+            "description": "true to add the key of every word under its sentence (\"3:4 word | 3:5 word\").",
+            "type": "boolean"
           }
         },
         "required": [
@@ -465,6 +677,7 @@
         ]
       },
       "annotations": {
+        "title": "Read transcript",
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
@@ -472,10 +685,15 @@
     },
     {
       "name": "search_transcript",
-      "description": "Find where an exact word or phrase is spoken. Returns unit ids, times, the first word key and a little context.",
+      "title": "Search transcript",
+      "description": "Find where an exact word or phrase is spoken. Returns unit ids, times, the first word key and a little context. On this server each hit gives montageAt and montageSec (times of the MONTAGE), says `cut` when the words are cut, and gives sourceSec only with withSource: true.",
       "inputSchema": {
         "type": "object",
         "properties": {
+          "withSource": {
+            "type": "boolean",
+            "description": "true to add the time in the SOURCE video next to each montage time (rarely needed: every tool takes montage times or word keys)."
+          },
           "projectId": {
             "type": "string",
             "description": "The project id (from list_projects or clone_project)."
@@ -498,6 +716,7 @@
         ]
       },
       "annotations": {
+        "title": "Search transcript",
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
@@ -505,6 +724,7 @@
     },
     {
       "name": "find_hesitations",
+      "title": "Find hesitations",
       "description": "Deterministically detect hesitations, by kind: `filler` (euh, um…), `repeat` (an immediate repeat), `restart` (a multi-word restart), `false_start` (an abandoned start). Returns candidates with their word keys and context, and the PAUSES the viewer hears longer than pauseOverSec (default 1 s). Nothing is cut: cut what deserves it with strike_words (fromKey/toKey from the candidate's keys), after reading the sentence around it. set_silences shortens every long pause at once.",
       "inputSchema": {
         "type": "object",
@@ -551,6 +771,7 @@
         "additionalProperties": false
       },
       "annotations": {
+        "title": "Find hesitations",
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
@@ -558,6 +779,7 @@
     },
     {
       "name": "strike_words",
+      "title": "Cut words",
       "description": "Cut ONE named passage of words the user points at (a phrase, a sentence). `cutMode` carries the two transcript-panel variants: omit it (or \"remove\") to take the words out of the script, \"gap\" to keep their duration as a black/silent gap. `fromKey`/`toKey` are word keys (segment:word, e.g. 16:2) copied from the firstKey/lastKey of read_transcript or search_transcript; a unit id such as s18 is not a key. This is the tool for \"cut the sentence where I talk about X\". For a pass over the WHOLE video (bad takes, anything that adds nothing), a gesture this server does not offer — never this.",
       "inputSchema": {
         "type": "object",
@@ -578,12 +800,12 @@
           "fromKey": {
             "type": "string",
             "pattern": "^\\d+:\\d+$",
-            "description": "Transcript word key \"segmentIndex:wordIndex\" (from WORD INDEX)"
+            "description": "Transcript word key \"segmentIndex:wordIndex\", copied from the transcript you were given, never invented"
           },
           "toKey": {
             "type": "string",
             "pattern": "^\\d+:\\d+$",
-            "description": "Transcript word key \"segmentIndex:wordIndex\" (from WORD INDEX)"
+            "description": "Transcript word key \"segmentIndex:wordIndex\", copied from the transcript you were given, never invented"
           },
           "reason": {
             "type": "string"
@@ -603,6 +825,7 @@
         ]
       },
       "annotations": {
+        "title": "Cut words",
         "readOnlyHint": false,
         "destructiveHint": true,
         "openWorldHint": false
@@ -610,6 +833,7 @@
     },
     {
       "name": "restore_words",
+      "title": "Restore words",
       "description": "un-cut a struck passage (✗ words)",
       "inputSchema": {
         "type": "object",
@@ -630,12 +854,12 @@
           "fromKey": {
             "type": "string",
             "pattern": "^\\d+:\\d+$",
-            "description": "Transcript word key \"segmentIndex:wordIndex\" (from WORD INDEX)"
+            "description": "Transcript word key \"segmentIndex:wordIndex\", copied from the transcript you were given, never invented"
           },
           "toKey": {
             "type": "string",
             "pattern": "^\\d+:\\d+$",
-            "description": "Transcript word key \"segmentIndex:wordIndex\" (from WORD INDEX)"
+            "description": "Transcript word key \"segmentIndex:wordIndex\", copied from the transcript you were given, never invented"
           }
         },
         "required": [
@@ -645,6 +869,7 @@
         ]
       },
       "annotations": {
+        "title": "Restore words",
         "readOnlyHint": false,
         "destructiveHint": false,
         "openWorldHint": false
@@ -652,6 +877,7 @@
     },
     {
       "name": "correct_words",
+      "title": "Correct words",
       "description": "Fix the wording of ONE passage the user names (a typo, a wrong transcription). `text` carries the corrected words. For corrections touching the whole video, a gesture this server does not offer mode \"correct\"; for one spot, this one.",
       "inputSchema": {
         "type": "object",
@@ -672,12 +898,12 @@
           "fromKey": {
             "type": "string",
             "pattern": "^\\d+:\\d+$",
-            "description": "Transcript word key \"segmentIndex:wordIndex\" (from WORD INDEX)"
+            "description": "Transcript word key \"segmentIndex:wordIndex\", copied from the transcript you were given, never invented"
           },
           "toKey": {
             "type": "string",
             "pattern": "^\\d+:\\d+$",
-            "description": "Transcript word key \"segmentIndex:wordIndex\" (from WORD INDEX)"
+            "description": "Transcript word key \"segmentIndex:wordIndex\", copied from the transcript you were given, never invented"
           },
           "text": {
             "type": "string"
@@ -691,6 +917,7 @@
         ]
       },
       "annotations": {
+        "title": "Correct words",
         "readOnlyHint": false,
         "destructiveHint": false,
         "openWorldHint": false
@@ -698,6 +925,7 @@
     },
     {
       "name": "move_passage",
+      "title": "Move a passage",
       "description": "Move a passage of WHOLE sentences so it plays elsewhere; nothing is cut. The hook gesture: leave beforeKey out and the passage becomes the very first thing heard, then the video goes on in its order (the greeting and intro follow it). To OPEN the video on its strongest sentence (a question, a figure, a promise), the passage IS that strong sentence and beforeKey is left out; never move the greeting or the announcement away instead. `fromKey` is the first word of the first sentence, `toKey` the last word of the last sentence (the one with the full stop), copied from the transcript. The passage must last 3 to 15 s. `beforeKey` only to place it before another sentence: the first word of that sentence. A passage that starts or ends mid-sentence is refused with the reason. This server adds `scenes`: \"follow\" (default) or \"stay\" (the B-rolls anchored on the passage keep their place in the montage). A B-roll that follows and outlasts its passage can be shortened with set_duration, or redrawn with measure_scene then insert_scene and its brollId.",
       "inputSchema": {
         "type": "object",
@@ -722,17 +950,17 @@
           "fromKey": {
             "type": "string",
             "pattern": "^\\d+:\\d+$",
-            "description": "Transcript word key \"segmentIndex:wordIndex\" (from WORD INDEX)"
+            "description": "Transcript word key \"segmentIndex:wordIndex\", copied from the transcript you were given, never invented"
           },
           "toKey": {
             "type": "string",
             "pattern": "^\\d+:\\d+$",
-            "description": "Transcript word key \"segmentIndex:wordIndex\" (from WORD INDEX)"
+            "description": "Transcript word key \"segmentIndex:wordIndex\", copied from the transcript you were given, never invented"
           },
           "beforeKey": {
             "type": "string",
             "pattern": "^\\d+:\\d+$",
-            "description": "Transcript word key \"segmentIndex:wordIndex\" (from WORD INDEX)"
+            "description": "Transcript word key \"segmentIndex:wordIndex\", copied from the transcript you were given, never invented"
           }
         },
         "required": [
@@ -742,6 +970,7 @@
         ]
       },
       "annotations": {
+        "title": "Move a passage",
         "readOnlyHint": false,
         "destructiveHint": true,
         "openWorldHint": false
@@ -749,6 +978,7 @@
     },
     {
       "name": "set_silences",
+      "title": "Set silence handling",
       "description": "The switch that cuts the silences (long pauses) between sentences and words across the WHOLE video. enabled:true cuts them: \"coupe les blancs\", \"enlève les silences\", \"remove the pauses\", \"tighten the gaps\". enabled:false puts them back. The project state says whether it is ON now. breathMs is the pause kept at each cut (default 300 ms, the Studio's \"natural\" breath); set it only when the person asks for tighter (150) or calmer (600) cuts. For a full edit the code sets the editor's breath (leadMs before speech, tailMs after, longer; minGapMs: only longer pauses are cut); change it only when asked.",
       "inputSchema": {
         "type": "object",
@@ -796,6 +1026,7 @@
         ]
       },
       "annotations": {
+        "title": "Set silence handling",
         "readOnlyHint": false,
         "destructiveHint": false,
         "openWorldHint": false
@@ -803,6 +1034,7 @@
     },
     {
       "name": "look_at_source",
+      "title": "Look at the source video",
       "description": "SEE the raw SOURCE video at one moment: returns the picture itself (JPEG), with a 12x12 grid drawn on it (columns A-L left to right, rows 1-12 top to bottom) to help you read positions. Every zone or box you give back to the tools (add_zoom zone, a face box) is in FRACTIONS 0-1 of THIS source picture: x, y of the top-left corner, w, h of the size; one grid cell is 1/12. Also returns what the project already measured there, without a new look: the speaker's `face` box and where it comes from (an earlier look, the map of the source, the face track, or on a screen share the camera card), `sourceShows` (speaker facing the camera, screen share with a camera card, screen alone) and, on a screen share, `cameraCard`. get_scene_brief, measure_scene and insert_scene use the same face when you omit `face`. Null face: nothing measured there; read it on the picture. `at`: montage seconds, \"m:ss\" or a word key; source:true reads `at` as source seconds. Free; ffmpeg, under 2 s.",
       "inputSchema": {
         "type": "object",
@@ -835,7 +1067,7 @@
             "type": "boolean"
           },
           "width": {
-            "description": "Picture width in px (default 1280).",
+            "description": "Picture width in px, 320 to 1280 (default 1280). look_at_montage takes 960 to 1920.",
             "type": "integer",
             "minimum": 320,
             "maximum": 1280
@@ -848,6 +1080,7 @@
         "additionalProperties": false
       },
       "annotations": {
+        "title": "Look at the source video",
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
@@ -855,6 +1088,7 @@
     },
     {
       "name": "look_at_montage",
+      "title": "Look at the edit",
       "description": "SEE your EDIT at one moment of the montage: renders the FINAL picture as the viewer will see it (the cut video, its zoom, every B-roll and scene on top, the speaker's card, the captions) and returns it (JPEG, 1280 px wide by default, no grid so nothing hides the face; grid: true adds the 12x12 grid), with what the code measures: the layers on screen and whether each is drawn, the speaker's face box measured before (fractions of the frame), the share of the face under each visual, the active zoom, the caption shown, and problems found. Look after placing or changing something, and before saying an edit is finished. Read-only and free; one render at a time (looks asked together wait for each other), 5 to 60 s each, so look at the moments that matter.",
       "inputSchema": {
         "type": "object",
@@ -883,7 +1117,7 @@
             "type": "boolean"
           },
           "width": {
-            "description": "Picture width in px (default 1280).",
+            "description": "Picture width in px, 960 to 1920 (default 1280): under 960 a button of the edit no longer reads. look_at_source takes 320 to 1280.",
             "type": "integer",
             "minimum": 960,
             "maximum": 1920
@@ -896,6 +1130,7 @@
         "additionalProperties": false
       },
       "annotations": {
+        "title": "Look at the edit",
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
@@ -903,7 +1138,8 @@
     },
     {
       "name": "check_edit",
-      "description": "Check the whole edit, by code, free, no model. Three parts. `timeline`: what gets in each other's way on the export's timeline, each with its montage seconds and a fix: two scenes on the same layer at once, a scene drawn over another, a zoom under a scene (a zoom enlarges the video, never the scene: \"zoom-under-full-frame\" when the render shows the scene fills the frame, so the zoom is not seen; under a transparent P9 scene, only \"zoom-pushes-face-under-scene\" when the zoomed face goes under the scene's elements and \"zoom-shifts-scene-target\" when the part of the picture the scene marks slides away), an HTML page shortened or lengthened by more than 10 % or 50 % (the export plays its whole animation faster or slower to fit its block; nothing is cut), captions drawn over a scene, a visual past the end, and \"long-stretch-without-visual\": every stretch of 30 s or more with no visual, with what the source shows there, where the speaker is, and `zones`: the calm bands of the picture (black bands around a shared screen, a plain wall) where a P9 scene can play, in fractions of the frame. What the cuts left behind: \"visual-outside-montage\" (its words cut up to the end: not shown), \"visual-on-cut-words\" (moved to a cut seam), \"zoom-zero-length\", \"caption-passage-cut\", each with its removal. `scenes`: every scene's pace in its block: an HTML page the export plays faster (shortened) or slower (lengthened), or a ready-made template laid out again for its block (its pace kept). `rubric`: the publish-ready rubric (hook, visual density, longest stretch without a visual, captions, retakes left, mid-sentence joins, zooms, music), what fails and how to fix it. Run it after a batch of gestures and before saying an edit is finished; then look_at_montage at the moments it names. With measure (default true) it renders one frame per scene that something overlaps, to tell a full-frame scene from a smaller one: 5 to 60 s.",
+      "title": "Check the edit",
+      "description": "Check the whole edit, by code, free, no model. Three parts. `timeline`: what gets in each other's way on the export's timeline, each with its montage seconds and a fix: two scenes on the same layer at once, a scene drawn over another, a zoom under a scene (a zoom enlarges the video, never the scene: \"zoom-under-full-frame\" when the render shows the scene fills the frame, so the zoom is not seen; under a transparent P9 scene, only \"zoom-pushes-face-under-scene\" when the zoomed face goes under the scene's elements and \"zoom-shifts-scene-target\" when the part of the picture the scene marks slides away), an HTML page shortened or lengthened by more than 10 % or 50 % (the export plays its whole animation faster or slower to fit its block; nothing is cut), captions drawn over a scene, a visual past the end. What the cuts left behind: \"visual-outside-montage\" (its words cut up to the end: not shown), \"visual-on-cut-words\" (moved to a cut seam), \"zoom-zero-length\", \"caption-passage-cut\", each with its removal. In a shared screen with a detached speaker's card (it stays still while the screen zooms beside it): \"zoom-shows-speaker-twice\" (a zoom under it still shows the camera card of the source, so the speaker appears twice). When the speaker's video moves during a scene: \"video-motion-twice-in-a-row\" (two visuals in a row move it), \"scene-under-moving-video\" (a page drawn without the motion its row carries: it paints under the video), \"flat-scene-without-motion\" (a P9 page drawn for a moving video whose row lost the motion: its background covers the speaker), \"video-motion-past-block\" (the motion ends after its block: at the cut the video is still away from its place and jumps back). `scenes`: every scene's pace in its block: an HTML page the export plays faster (shortened) or slower (lengthened), or a ready-made template laid out again for its block (its pace kept). `rubric`: the publish-ready rubric (hook, too many visuals, visuals on each other, captions, retakes left, mid-sentence joins, zooms, music), what fails and how to fix it. No number of visuals per minute is required: the visual density, the pace and the stretches without a visual come in the rubric's `notes`, for information. `notes`: what was seen but needs no fix: \"long-stretch-without-visual\" (every stretch of 30 s or more with no visual, with what the source shows there, where the speaker is, and `zones`: the calm bands of the picture, such as black bands around a shared screen or a plain wall, where a P9 scene can play, in fractions of the frame, and `ideas`: what the speaker explains there that may ask for a picture, such as a list, a number, steps or a comparison, to answer one by one in a full edit; leaving the speaker alone there is a valid choice), subtitles at the bottom while a P9 scene's elements stay above them; the rubric's `notes` also say which taste limits a gesture the creator asked for lifts (a zoom or subtitles passed with `reason`). Notes never count as points to fix. Run it after a batch of gestures and before saying an edit is finished; then look_at_montage at the moments it names. With measure (default true) it renders one frame per scene that something overlaps, to tell a full-frame scene from a smaller one: 5 to 60 s.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -923,6 +1159,7 @@
         "additionalProperties": false
       },
       "annotations": {
+        "title": "Check the edit",
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
@@ -930,6 +1167,7 @@
     },
     {
       "name": "list_zooms",
+      "title": "List zooms",
       "description": "The punch-in zooms already on the video: id, scale, motion and moment (fromKey/toKey, the word keys the gestures take, and montageStartSec/montageEndSec, the seconds look_at_montage takes). Call it before update_zoom or remove_zooms; a zoom id never comes from you.",
       "inputSchema": {
         "type": "object",
@@ -946,6 +1184,7 @@
         "additionalProperties": false
       },
       "annotations": {
+        "title": "List zooms",
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
@@ -953,7 +1192,8 @@
     },
     {
       "name": "add_zoom",
-      "description": "Add a punch-in zoom from startWordKey to endWordKey (or for durationSec). To show a part of the SCREEN the speaker talks about (a button, a menu, a line of code), pass `zone`: the rectangle you read on look_at_source, in fractions of the source picture; the code picks the scale and the framing that show the whole zone (the strongest allowed zoom is x1.6, so a small zone gets x1.6 centred on it, and a zone covering nearly the whole frame is refused with the reason). Without zone, give scale (1.05 to 1.6) and, only for a deliberate off-centre framing, focusX/focusY (crop-slack fractions); without them the app frames on the subject it detects. motion: snap (default), push (slow push-in), punch (hit and overshoot), keyframes (any curve or pan; not with zone). The result gives the frame actually set. A zoom enlarges the source video only, never a scene, title or image placed over it (the preview and the export do the same): under a full-frame scene it is not seen; under a transparent P9 scene the scene stays put while the face and the screen grow and slide behind it, so a mark drawn on a button no longer sits on it. check_edit names only these conflicts.",
+      "title": "Add zoom",
+      "description": "Add a punch-in zoom from startWordKey to endWordKey (or for durationSec). To show a part of the SCREEN the speaker talks about (a button, a menu, a line of code), pass `zone`: the rectangle you read on look_at_source, in fractions of the source picture; the code picks the scale and the framing that show the whole zone (the strongest allowed zoom is x1.6, so a small zone gets x1.6 centred on it, and a zone covering nearly the whole frame is refused with the reason). Without zone, give scale (1.05 to 1.6) and, only for a deliberate off-centre framing, focusX/focusY (crop-slack fractions); without them the app frames on the subject it detects. motion: snap (default), push (slow push-in), punch (hit and overshoot), keyframes (any curve or pan; not with zone). The result gives the frame actually set. When the creator asked for this zoom, pass `reason` (their request in one line): check_edit then reports the zoom spacing and count limits as a note, not a point to fix. A zoom enlarges the source video only, never a scene, title or image placed over it (the preview and the export do the same): under a full-frame scene it is not seen; under a transparent P9 scene the scene stays put while the face and the screen grow and slide behind it, so a mark drawn on a button no longer sits on it. check_edit names only these conflicts. Under the speaker's detached card (a shared screen where the speaker's card stays still while the screen zooms beside it), the zoom must never show the camera card of the source: the result moves the framing until that card leaves the frame (same scale), or refuses the zoom when no framing at that scale does; it is never widened to keep the card whole there, since the speaker would then appear twice.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -1002,12 +1242,12 @@
           "startWordKey": {
             "type": "string",
             "pattern": "^\\d+:\\d+$",
-            "description": "Transcript word key \"segmentIndex:wordIndex\" (from WORD INDEX)"
+            "description": "Transcript word key \"segmentIndex:wordIndex\", copied from the transcript you were given, never invented"
           },
           "endWordKey": {
             "type": "string",
             "pattern": "^\\d+:\\d+$",
-            "description": "Transcript word key \"segmentIndex:wordIndex\" (from WORD INDEX)"
+            "description": "Transcript word key \"segmentIndex:wordIndex\", copied from the transcript you were given, never invented"
           },
           "durationSec": {
             "type": "number",
@@ -1107,6 +1347,11 @@
                 "scale"
               ]
             }
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "Only when the creator asked for this gesture: their request in one line (\"zoom on the button when I click\"). The rubric then reports its taste limits (spacing, count) as a note, never as a point to fix. Leave out for a gesture you chose."
           }
         },
         "required": [
@@ -1116,6 +1361,7 @@
         "description": "Give endWordKey or durationSec; give scale unless you give zone."
       },
       "annotations": {
+        "title": "Add zoom",
         "readOnlyHint": false,
         "destructiveHint": false,
         "openWorldHint": false
@@ -1123,6 +1369,7 @@
     },
     {
       "name": "update_zoom",
+      "title": "Update zoom",
       "description": "Adjust a zoom ALREADY on the video (the zoom-settings popover, by tool): its intensity (scale), its curve (ease), its length (durationSec), its framing (focusX/focusY). The id comes from list_zooms, never from you. For a NEW zoom, add_zoom.",
       "inputSchema": {
         "type": "object",
@@ -1294,6 +1541,7 @@
         ]
       },
       "annotations": {
+        "title": "Update zoom",
         "readOnlyHint": false,
         "destructiveHint": false,
         "openWorldHint": false
@@ -1301,6 +1549,7 @@
     },
     {
       "name": "remove_zooms",
+      "title": "Remove zooms",
       "description": "Remove zooms by id (from list_zooms) or all of them at once.",
       "inputSchema": {
         "type": "object",
@@ -1348,6 +1597,7 @@
         ]
       },
       "annotations": {
+        "title": "Remove zooms",
         "readOnlyHint": false,
         "destructiveHint": true,
         "openWorldHint": false
@@ -1355,7 +1605,8 @@
     },
     {
       "name": "list_layouts",
-      "description": "The scene layouts for a moment (or for the video when no moment is given): for each, whether it holds and why not (format, the speaker's face, captions), the scene box, the content box (the size of the page you write) and its background (opaque: you paint the box; transparent: P9, your elements play over the video), and the speaker card. Boxes are in px of the final frame. Free, no rendering.",
+      "title": "List layouts",
+      "description": "The scene layouts for a moment (or for the video when no moment is given): for each, its background (opaque: you paint the box; transparent: P2, P3, P4 and P9 play over the video and the code removes a full-frame background), whether it holds and why not (format, the speaker's face, captions), the scene box, the content box (the size of the page you write), and the speaker card. Boxes are in px of the final frame. Free, no rendering.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -1460,6 +1711,7 @@
         "additionalProperties": false
       },
       "annotations": {
+        "title": "List layouts",
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
@@ -1467,7 +1719,8 @@
     },
     {
       "name": "get_scene_contract",
-      "description": "The technical contract of a scene page (the HTML document the app plays and exports), the base skill, every recipe and when to use it (a list said one item after another is liste-revelee), the grading grid our judge uses, and the rules of this server. Read it once before writing your first scene. `recipe` adds that recipe's full skill.",
+      "title": "Read the scene contract",
+      "description": "The technical contract of a scene page (the HTML document the app plays and exports), the base skill, every recipe and when to use it (a list said one item after another is liste-revelee), the grading grid our judge uses, and the rules of this server. Read it once before writing your first scene. `recipe` adds that recipe's full skill. The skills give the craft; colours, backgrounds, fonts and animation pace come from the creator's brand kit and instructions: `projectId` adds them, and they replace the fallback values of the base skill.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -1481,11 +1734,18 @@
               "sequence-cinematique",
               "liste-revelee"
             ]
+          },
+          "projectId": {
+            "description": "Optional: the project you draw for. With it, the answer carries that creator's look (colours, background, shadow, fonts) and animation pace from their brand kit and instructions.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
           }
         },
         "additionalProperties": false
       },
       "annotations": {
+        "title": "Read the scene contract",
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
@@ -1493,18 +1753,56 @@
     },
     {
       "name": "get_scene_examples",
-      "description": "Example scene pages graded 28-29/30, one per recipe: E1 compteur-mecanique, E2 autocollants, E3 interface-simulee, E4 sequence-cinematique, E5 liste-revelee. Without `id`: the list, with the recipe of each. With `id`: its notes (LISEZMOI), the whole HTML page, and its strip (six frames of the scene, PNG) when there is one.",
+      "title": "Get scene examples",
+      "description": "Example scene pages, graded by the code's measure: E1 compteur-mecanique, E2 autocollants, E3 interface-simulee, E4 sequence-cinematique, E5 liste-revelee, one per recipe; E6, a P9 scene whose page paints its own background over the whole frame. Without `id`: the list, with the recipe of each. With `id`: its notes (LISEZMOI), the whole HTML page, and its strip (six frames of the scene, PNG) when there is one. With `id` and `projectId`: the page in that creator's theme (accent, background, card, text, font, shadow), its pace written at the top; the strip stays the neutral one.",
       "inputSchema": {
         "type": "object",
         "properties": {
           "id": {
             "type": "string",
             "pattern": "^E\\d{1,2}$"
+          },
+          "projectId": {
+            "description": "Optional: the project you draw for. With it, the answer carries that creator's look (colours, background, shadow, fonts) and animation pace from their brand kit and instructions.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
           }
         },
         "additionalProperties": false
       },
       "annotations": {
+        "title": "Get scene examples",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "list_gestures",
+      "title": "List scene gestures",
+      "description": "The catalog of scene gestures (motion design moves that say what a sentence does: point at a spot, reveal a card, highlight a word, count up, compare, build a list, tick boxes on the voice, build a diagram, open a chapter, tags around the speaker). Each gesture is a content idea only; the speaker's video is a separate choice, `space`. Without `ids`: one line per gesture (id, name, where it lives: over the video, in a box, full frame; when to use it; the capability it lacks and its fallback) and the gestures each video type favours. With `ids` (from get_scene_brief's `gestures`): each gesture in full, with its timed storyboard, curves, face placement, 9:16 and 4:5 adaptation and reference code. Free, no project needed.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "ids": {
+            "description": "Gesture ids to read in full (get_scene_brief gives 2 to 4 for your moment).",
+            "maxItems": 8,
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^[GR]\\d{1,2}$"
+            }
+          },
+          "vertical": {
+            "description": "true to include the 9:16 and 4:5 adaptation of each gesture read in full.",
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "title": "List scene gestures",
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
@@ -1512,7 +1810,8 @@
     },
     {
       "name": "get_scene_brief",
-      "description": "The brief of a scene, exactly what our own drawer receives: the moment and the words said, the sheet (what, where, recipe, layout, timed beats in seconds from the start of the scene), the content box (the page size you write and its background), the face, the rules the code measures in numbers for THIS frame, the canvas and the creator's preferences. `range` says whether the moment holds (its last beat before 85 % of the scene, so the last element is read) and, when it does not, the end word that makes it hold. Free; no model writes it, the code does.",
+      "title": "Get scene brief",
+      "description": "The brief of a scene, exactly what our own drawer receives: the moment and the words said, the sheet (what, where, recipe, layout, timed beats in seconds from the start of the scene), the content box (the page size you write and its background), the face, the rules the code measures in numbers for THIS frame, the canvas, the creator's preferences, and the creator's look and animation pace in numbers (from their brand kit and instructions). By default the brief keeps the moment, the sheet, the creator's preferences, look and pace (the boxes, beats and face are in the answer as numbers); `detail: true` adds the rules the code measures and the canvas. `boxBySubtitles` gives the content box without subtitles, with subtitles over this moment, and now. `range` says how many elements the scene carries (`elements`, about one per 2 s: a 4 s scene carries 2), by when the last one must enter to be read for 0.8 s (`lastEntryBySec`; it may enter a little before its word), and whether the moment holds; when it does not, the end word that makes it hold. Free; no model writes it, the code does.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -1632,6 +1931,98 @@
               "h"
             ],
             "additionalProperties": false
+          },
+          "space": {
+            "description": "Optional: the space the speaker's video makes during this scene. One question decides, never the kind of content: does the speaker's face matter at this moment, and how much room does what you show need? Small thing and the face matters: keep the video in place and lay a card or an object over it. Needs room and the face still matters: the video moves aside (kind decale). The face no longer matters: a full-frame scene (P1), with the speaker in a camera card if you want them seen (kind carte). By default at most one scene in three moves the video, never two in a row; the creator's request can ask for more. decale needs layout P9 and gives back the freed place as the scene's zone; carte needs P1 or P9. The code computes the video's boxes from the face, the format and the length; refused with the fix (and, for decale, the largest place that holds) with no face known, on a shared screen, in another layout, or with the account's video motion closed. Pass the same value to get_scene_brief, measure_scene and insert_scene.",
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "reste",
+                  "decale",
+                  "carte"
+                ],
+                "description": "reste: the video stays in place. decale: it moves aside to free a place on one side. carte: it tightens from the full frame into a camera card."
+              },
+              "cote": {
+                "description": "decale: the side to free, away from the face: gauche or droite in 16:9, haut or bas in 9:16 and 4:5.",
+                "type": "string",
+                "enum": [
+                  "gauche",
+                  "droite",
+                  "haut",
+                  "bas"
+                ]
+              },
+              "place": {
+                "description": "decale: the share of the frame to free on that side, 0.1 to 0.6. The code moves the video by exactly that much, never cutting the face; when the face leaves less room, the refusal gives the largest place that holds.",
+                "type": "number",
+                "minimum": 0.1,
+                "maximum": 0.6
+              },
+              "style": {
+                "description": "decale: glisse (slides, blurred only while it moves, comes back before the cut) or pousse (pushes and stays until the cut). Default glisse.",
+                "type": "string",
+                "enum": [
+                  "glisse",
+                  "pousse"
+                ]
+              },
+              "forme": {
+                "description": "carte: the camera card's shape, as in the Camera tab. Default circle.",
+                "type": "string",
+                "enum": [
+                  "wide",
+                  "square",
+                  "portrait",
+                  "vertical",
+                  "circle",
+                  "pill"
+                ]
+              },
+              "position": {
+                "description": "carte: where the card goes; coin-libre lets the code pick the corner away from the free side. Default coin-libre.",
+                "type": "string",
+                "enum": [
+                  "top-left",
+                  "top-right",
+                  "bottom-left",
+                  "bottom-right",
+                  "center",
+                  "coin-libre"
+                ]
+              },
+              "largeur": {
+                "description": "carte: the card's width in % of the frame width, 10 to 50.",
+                "type": "number",
+                "minimum": 10,
+                "maximum": 50
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "additionalProperties": false
+          },
+          "video": {
+            "description": "Optional shortcut for `space`, by style: glisse-bord-flou (decale glisse, up to 36 %), pousse-cote (decale pousse, up to 34 %), respiration (reste with a slight move in) need layout P9; cercle-coin (a round camera card in the free corner) needs P1 or P9. `space` wins when both are given. carte-detachee is the reverse, for a SHARED SCREEN only: the speaker's camera card stays still exactly where the source shows it (P9, P2 or P4; no face needed), ordinary zooms show the screen beside it; refused off a shared screen or with no measured camera card. Pass the same value to get_scene_brief, measure_scene and insert_scene.",
+            "type": "string",
+            "enum": [
+              "glisse-bord-flou",
+              "cercle-coin",
+              "pousse-cote",
+              "respiration",
+              "carte-detachee"
+            ]
+          },
+          "withSource": {
+            "description": "true to add the time in the SOURCE video next to each montage time (rarely needed: every tool takes montage times or word keys).",
+            "type": "boolean"
+          },
+          "detail": {
+            "description": "true for the whole brief: the rules the code measures in px for this frame and the canvas (about three times longer).",
+            "type": "boolean"
           }
         },
         "required": [
@@ -1643,6 +2034,7 @@
         "additionalProperties": false
       },
       "annotations": {
+        "title": "Get scene brief",
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
@@ -1650,7 +2042,8 @@
     },
     {
       "name": "measure_scene",
-      "description": "Try a scene page without writing anything: the code checks the page (structure, network, GSAP plugins, selectors, script syntax; a refusal lists the problems), places it in its layout over the real video, films it in Chrome and measures it like our chain does: broken or not and why (frozen, empty, cut text, placeholder frame, face covered, nothing new on a beat), plus notes to improve it. Returns the strip of the scene on the video and the content box alone. No judge and no model: you judge the pictures. Free: no credit, no model, a Chrome render of 20 to 90 s, one at a time. A scene usually takes 2 or 3 measures (fix everything a measure lists before the next), and a full edit draws several scenes: the cap of 12 measures per scene per hour is a ceiling against loops, not a cost.",
+      "title": "Measure scene",
+      "description": "Try a scene page without writing anything: the code checks the page (structure, network, GSAP plugins, selectors, script syntax; a refusal lists the problems), places it in its layout over the real video, films it in Chrome and measures it like our chain does: broken or not and why (frozen, empty, cut text, placeholder frame, face covered, nothing new on a beat), plus notes to improve it. An outline icon, a dial or the + sign between two items are drawings, not placeholder frames; mark a purely decorative element `data-brolls-decor` when the measure still reads it as an empty box, never a box that waits for content. Pictures: by default the strip of the scene on the video, reduced, when the measure finds something, and none when it finds nothing; `pictures` asks for none, small or full (with the content box alone). No judge and no model: you judge the pictures. Free: no credit, no model, a Chrome render of 20 to 90 s, one at a time. A scene usually takes 2 or 3 measures (fix everything a measure lists before the next), and a full edit draws several scenes: the cap of 12 measures per scene per hour is a ceiling against loops, not a cost.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -1771,11 +2164,104 @@
             ],
             "additionalProperties": false
           },
+          "space": {
+            "description": "Optional: the space the speaker's video makes during this scene. One question decides, never the kind of content: does the speaker's face matter at this moment, and how much room does what you show need? Small thing and the face matters: keep the video in place and lay a card or an object over it. Needs room and the face still matters: the video moves aside (kind decale). The face no longer matters: a full-frame scene (P1), with the speaker in a camera card if you want them seen (kind carte). By default at most one scene in three moves the video, never two in a row; the creator's request can ask for more. decale needs layout P9 and gives back the freed place as the scene's zone; carte needs P1 or P9. The code computes the video's boxes from the face, the format and the length; refused with the fix (and, for decale, the largest place that holds) with no face known, on a shared screen, in another layout, or with the account's video motion closed. Pass the same value to get_scene_brief, measure_scene and insert_scene.",
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "reste",
+                  "decale",
+                  "carte"
+                ],
+                "description": "reste: the video stays in place. decale: it moves aside to free a place on one side. carte: it tightens from the full frame into a camera card."
+              },
+              "cote": {
+                "description": "decale: the side to free, away from the face: gauche or droite in 16:9, haut or bas in 9:16 and 4:5.",
+                "type": "string",
+                "enum": [
+                  "gauche",
+                  "droite",
+                  "haut",
+                  "bas"
+                ]
+              },
+              "place": {
+                "description": "decale: the share of the frame to free on that side, 0.1 to 0.6. The code moves the video by exactly that much, never cutting the face; when the face leaves less room, the refusal gives the largest place that holds.",
+                "type": "number",
+                "minimum": 0.1,
+                "maximum": 0.6
+              },
+              "style": {
+                "description": "decale: glisse (slides, blurred only while it moves, comes back before the cut) or pousse (pushes and stays until the cut). Default glisse.",
+                "type": "string",
+                "enum": [
+                  "glisse",
+                  "pousse"
+                ]
+              },
+              "forme": {
+                "description": "carte: the camera card's shape, as in the Camera tab. Default circle.",
+                "type": "string",
+                "enum": [
+                  "wide",
+                  "square",
+                  "portrait",
+                  "vertical",
+                  "circle",
+                  "pill"
+                ]
+              },
+              "position": {
+                "description": "carte: where the card goes; coin-libre lets the code pick the corner away from the free side. Default coin-libre.",
+                "type": "string",
+                "enum": [
+                  "top-left",
+                  "top-right",
+                  "bottom-left",
+                  "bottom-right",
+                  "center",
+                  "coin-libre"
+                ]
+              },
+              "largeur": {
+                "description": "carte: the card's width in % of the frame width, 10 to 50.",
+                "type": "number",
+                "minimum": 10,
+                "maximum": 50
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "additionalProperties": false
+          },
+          "video": {
+            "description": "Optional shortcut for `space`, by style: glisse-bord-flou (decale glisse, up to 36 %), pousse-cote (decale pousse, up to 34 %), respiration (reste with a slight move in) need layout P9; cercle-coin (a round camera card in the free corner) needs P1 or P9. `space` wins when both are given. carte-detachee is the reverse, for a SHARED SCREEN only: the speaker's camera card stays still exactly where the source shows it (P9, P2 or P4; no face needed), ordinary zooms show the screen beside it; refused off a shared screen or with no measured camera card. Pass the same value to get_scene_brief, measure_scene and insert_scene.",
+            "type": "string",
+            "enum": [
+              "glisse-bord-flou",
+              "cercle-coin",
+              "pousse-cote",
+              "respiration",
+              "carte-detachee"
+            ]
+          },
           "html": {
             "type": "string",
             "minLength": 1,
             "maxLength": 4000000,
             "description": "The whole HTML document of the scene, at the size of its content box."
+          },
+          "pictures": {
+            "description": "The pictures in the answer: none; small (the scene over the video, reduced); full (that strip and the content box alone, full size).",
+            "type": "string",
+            "enum": [
+              "none",
+              "small",
+              "full"
+            ]
           }
         },
         "required": [
@@ -1788,6 +2274,7 @@
         "additionalProperties": false
       },
       "annotations": {
+        "title": "Measure scene",
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
@@ -1795,7 +2282,8 @@
     },
     {
       "name": "insert_scene",
-      "description": "Place your scene in the montage: the page is checked and measured as measure_scene does (the measure is reused when the same page was just measured), then the B-roll and its page are written together, so the app plays and exports it without drawing anything. Status: ready (measured by code, not judged) when not broken, to review when broken. `brollId` replaces that scene (it gets a new id). Returns the new brollId and the editRevision, and `soundEffects`: the effects the code planned from the page itself (a whoosh on the scene's entrance, a click or a pop on its elements, as our own chain does); list_sfx shows them, remove_sfx takes them out. Free.",
+      "title": "Insert scene",
+      "description": "Place your scene in the montage: give the draftId measure_scene returned (or the whole page as html). The page is checked and measured as measure_scene does (the measure is reused when the same page was just measured), then the B-roll and its page are written together, so the app plays and exports it without drawing anything. Status: ready (measured by code, not judged) when not broken, to review when broken. `brollId` replaces that scene (it gets a new id). Returns the new brollId and the editRevision, and `soundEffects`: the effects the code planned from the page itself (a whoosh on the scene's entrance, a click or a pop on its elements, as our own chain does); list_sfx shows them, remove_sfx takes them out. `sfx` picks the entrance sound (a role, a library id, or null for none); without it, the scene never repeats the file of the scene right before or after it. Free.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -1916,11 +2404,101 @@
             ],
             "additionalProperties": false
           },
+          "space": {
+            "description": "Optional: the space the speaker's video makes during this scene. One question decides, never the kind of content: does the speaker's face matter at this moment, and how much room does what you show need? Small thing and the face matters: keep the video in place and lay a card or an object over it. Needs room and the face still matters: the video moves aside (kind decale). The face no longer matters: a full-frame scene (P1), with the speaker in a camera card if you want them seen (kind carte). By default at most one scene in three moves the video, never two in a row; the creator's request can ask for more. decale needs layout P9 and gives back the freed place as the scene's zone; carte needs P1 or P9. The code computes the video's boxes from the face, the format and the length; refused with the fix (and, for decale, the largest place that holds) with no face known, on a shared screen, in another layout, or with the account's video motion closed. Pass the same value to get_scene_brief, measure_scene and insert_scene.",
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "reste",
+                  "decale",
+                  "carte"
+                ],
+                "description": "reste: the video stays in place. decale: it moves aside to free a place on one side. carte: it tightens from the full frame into a camera card."
+              },
+              "cote": {
+                "description": "decale: the side to free, away from the face: gauche or droite in 16:9, haut or bas in 9:16 and 4:5.",
+                "type": "string",
+                "enum": [
+                  "gauche",
+                  "droite",
+                  "haut",
+                  "bas"
+                ]
+              },
+              "place": {
+                "description": "decale: the share of the frame to free on that side, 0.1 to 0.6. The code moves the video by exactly that much, never cutting the face; when the face leaves less room, the refusal gives the largest place that holds.",
+                "type": "number",
+                "minimum": 0.1,
+                "maximum": 0.6
+              },
+              "style": {
+                "description": "decale: glisse (slides, blurred only while it moves, comes back before the cut) or pousse (pushes and stays until the cut). Default glisse.",
+                "type": "string",
+                "enum": [
+                  "glisse",
+                  "pousse"
+                ]
+              },
+              "forme": {
+                "description": "carte: the camera card's shape, as in the Camera tab. Default circle.",
+                "type": "string",
+                "enum": [
+                  "wide",
+                  "square",
+                  "portrait",
+                  "vertical",
+                  "circle",
+                  "pill"
+                ]
+              },
+              "position": {
+                "description": "carte: where the card goes; coin-libre lets the code pick the corner away from the free side. Default coin-libre.",
+                "type": "string",
+                "enum": [
+                  "top-left",
+                  "top-right",
+                  "bottom-left",
+                  "bottom-right",
+                  "center",
+                  "coin-libre"
+                ]
+              },
+              "largeur": {
+                "description": "carte: the card's width in % of the frame width, 10 to 50.",
+                "type": "number",
+                "minimum": 10,
+                "maximum": 50
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "additionalProperties": false
+          },
+          "video": {
+            "description": "Optional shortcut for `space`, by style: glisse-bord-flou (decale glisse, up to 36 %), pousse-cote (decale pousse, up to 34 %), respiration (reste with a slight move in) need layout P9; cercle-coin (a round camera card in the free corner) needs P1 or P9. `space` wins when both are given. carte-detachee is the reverse, for a SHARED SCREEN only: the speaker's camera card stays still exactly where the source shows it (P9, P2 or P4; no face needed), ordinary zooms show the screen beside it; refused off a shared screen or with no measured camera card. Pass the same value to get_scene_brief, measure_scene and insert_scene.",
+            "type": "string",
+            "enum": [
+              "glisse-bord-flou",
+              "cercle-coin",
+              "pousse-cote",
+              "respiration",
+              "carte-detachee"
+            ]
+          },
           "html": {
             "type": "string",
             "minLength": 1,
             "maxLength": 4000000,
             "description": "The whole HTML document of the scene, at the size of its content box."
+          },
+          "draftId": {
+            "description": "The draftId measure_scene returned for this page, instead of sending the page again.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
           },
           "brollId": {
             "description": "The scene to replace (its id from get_project_state or a previous insert_scene).",
@@ -1934,23 +2512,45 @@
             "minimum": 1,
             "maximum": 4
           },
+          "pictures": {
+            "description": "The pictures in the answer (default none: measure_scene showed them).",
+            "type": "string",
+            "enum": [
+              "none",
+              "small",
+              "full"
+            ]
+          },
           "expectedRevision": {
             "description": "The editRevision you last read; a newer project gives a conflict and nothing is written.",
             "type": "integer",
             "minimum": 0,
             "maximum": 9007199254740991
+          },
+          "sfx": {
+            "description": "Optional: the scene's entrance sound. A role (whoosh, pop, pop-out, click, swipe, rise, fall, ding, impact, riser, notification, error, typing, ambience), an id from list_sfx's library (whoosh-2, swipe-1, rise-1…), or null for no sound at all on this scene. Left out: the code plans the sounds from the page, and never gives this scene the same file as the scene right before or after it on the montage.",
+            "anyOf": [
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 40
+              },
+              {
+                "type": "null"
+              }
+            ]
           }
         },
         "required": [
           "projectId",
           "fromKey",
           "toKey",
-          "layout",
-          "html"
+          "layout"
         ],
         "additionalProperties": false
       },
       "annotations": {
+        "title": "Insert scene",
         "readOnlyHint": false,
         "destructiveHint": true,
         "openWorldHint": false
@@ -1958,7 +2558,8 @@
     },
     {
       "name": "get_scene",
-      "description": "Read a scene: its moment (fromKey, toKey, montage start and end seconds, duration, layer), what kind of page it is (an HTML page, or a ready-made template: title, versus, big number, quote, checklist), the text it shows (a template's `texts`, each with its field, or the visible text of a page) and whether that text's language matches the video's, and for a scene of the app's scene chain its layout, status, grade, the reasons that broke it and the code's measures. `html: true` adds the stored page (the one played and exported). To change a scene: set_scene_text for a template's words, set_duration for its length, move_broll to re-anchor it on its words, set_broll_pip for the speaker's window; to change how it looks, write a new page and replace it in place with measure_scene then insert_scene with its brollId and the fromKey/toKey given here. Free.",
+      "title": "Get scene",
+      "description": "Read a scene: its moment (fromKey, toKey, montage start and end seconds, duration, layer), what kind of page it is (an HTML page, or a ready-made template: title, versus, big number, quote, checklist), the text it shows (a template's `texts`, each with its field, or the visible text of a page) and whether that text's language matches the video's, and for a scene of the app's scene chain its layout, status, grade, the reasons that broke it and the code's measures. `html: true` adds the stored page (the one played and exported), at most 40 000 characters per call: while `nextOffset` is not null, call again with htmlOffset: nextOffset and join the parts. To change a scene: set_scene_text for a template's words, set_duration for its length, move_broll to re-anchor it on its words, set_broll_pip for the speaker's window; to change how it looks, write a new page and replace it in place with measure_scene then insert_scene with its brollId and the fromKey/toKey given here. Free.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -1973,8 +2574,20 @@
             "maxLength": 128
           },
           "html": {
-            "description": "Also return the stored page of an HTML scene.",
+            "description": "Also return the stored page of an HTML scene, a part at a time: `html` (this part), `nextOffset` (pass it as htmlOffset for the next part; null when the page is complete) and `totalChars`.",
             "type": "boolean"
+          },
+          "htmlOffset": {
+            "description": "With html: true, the first character of the page to return (default 0, or the nextOffset of the last call).",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "htmlLimit": {
+            "description": "With html: true, at most this many characters of the page (default and maximum 40000).",
+            "type": "integer",
+            "minimum": 1000,
+            "maximum": 40000
           }
         },
         "required": [
@@ -1984,6 +2597,7 @@
         "additionalProperties": false
       },
       "annotations": {
+        "title": "Get scene",
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
@@ -1991,6 +2605,7 @@
     },
     {
       "name": "set_scene_text",
+      "title": "Set scene text",
       "description": "Change the words of a ready-made template scene (title, versus, big number, quote, checklist) in place: `texts` maps each field get_scene lists under `texts` (\"title\", \"items.2\", \"leftLabel\"…) to its new text. Only existing text fields change; the scene keeps its look, moment and length, and the app draws it again from the new words. Use it to put a scene in the video's language, fix a wording, or match what the speaker says. A scene with an HTML page has no fields: redraw it instead (measure_scene, then insert_scene with its brollId). Free.",
       "inputSchema": {
         "type": "object",
@@ -2033,6 +2648,7 @@
         "additionalProperties": false
       },
       "annotations": {
+        "title": "Set scene text",
         "readOnlyHint": false,
         "destructiveHint": false,
         "openWorldHint": false
@@ -2040,6 +2656,7 @@
     },
     {
       "name": "remove_brolls",
+      "title": "Remove B-rolls",
       "description": "Delete the B-rolls the selector matches. \"ids\" for named ones, \"all\": true for every one of them (that asks the user first). Ids come from the B-ROLLS list or get_project_state.",
       "inputSchema": {
         "type": "object",
@@ -2109,6 +2726,7 @@
         ]
       },
       "annotations": {
+        "title": "Remove B-rolls",
         "readOnlyHint": false,
         "destructiveHint": true,
         "openWorldHint": false
@@ -2116,6 +2734,7 @@
     },
     {
       "name": "add_marker",
+      "title": "Add marker",
       "description": "Mark a zone of the picture the speaker points at (a button, a menu, a line of code on the shared screen): a circle, an underline or a box that draws itself when `fromKey` is said, holds until `toKey`, then fades. `zone` is the rectangle of the thing, in fractions of the FINAL frame (read it on look_at_montage, or on look_at_source when the source fills the frame). Composed by code as a transparent P9 scene over the video: no drawing, no film, instant and free. A zoom on the same words moves the picture under the mark: keep zooms off it (check_edit says so). Replace or remove it like any scene (remove_brolls).",
       "inputSchema": {
         "type": "object",
@@ -2205,6 +2824,7 @@
         "additionalProperties": false
       },
       "annotations": {
+        "title": "Add marker",
         "readOnlyHint": false,
         "destructiveHint": false,
         "openWorldHint": false
@@ -2212,6 +2832,7 @@
     },
     {
       "name": "move_broll",
+      "title": "Move B-roll",
       "description": "Re-anchor one B-roll to another word of the words it illustrates (up to 1.5 s before them): the key comes from the transcript or from search_transcript, never from you. A visual never moves away from its own words: that move is refused.",
       "inputSchema": {
         "type": "object",
@@ -2235,7 +2856,7 @@
           "timelineStartWordKey": {
             "type": "string",
             "pattern": "^\\d+:\\d+$",
-            "description": "Transcript word key \"segmentIndex:wordIndex\" (from WORD INDEX)"
+            "description": "Transcript word key \"segmentIndex:wordIndex\", copied from the transcript you were given, never invented"
           }
         },
         "required": [
@@ -2245,6 +2866,7 @@
         ]
       },
       "annotations": {
+        "title": "Move B-roll",
         "readOnlyHint": false,
         "destructiveHint": false,
         "openWorldHint": false
@@ -2252,6 +2874,7 @@
     },
     {
       "name": "set_duration",
+      "title": "Set B-roll duration",
       "description": "How long the matched B-rolls stay on screen, in frames at 30 fps (3 seconds = 90). A shorter duration is always kept. When the user names no length, a longer one you choose that still ends before the sentence the visual illustrates is lengthened to that sentence, up to the limit of its place; the result says so. On a visual this request did not create, only when the request names a length. On this server the result gives each scene's `pace`: an HTML page is never cut, the export plays its whole animation faster when you shorten it (\"plays 2.1 times faster\") and slower when you lengthen it; to keep its pace, redraw it for the new length (measure_scene then insert_scene with its brollId). A ready-made template is laid out again for its new length and keeps its pace.",
       "inputSchema": {
         "type": "object",
@@ -2326,6 +2949,7 @@
         ]
       },
       "annotations": {
+        "title": "Set B-roll duration",
         "readOnlyHint": false,
         "destructiveHint": false,
         "openWorldHint": false
@@ -2333,7 +2957,8 @@
     },
     {
       "name": "set_broll_pip",
-      "description": "Show the speaker in a window ON TOP of a B-roll (the \"pop-out\"; it changes the picture, not the sound). `enabled: false` turns it off. Without position or box, the code renders the scene, finds the box it keeps empty for the camera (the \"empty-box\" problem look_at_montage reports) and puts the window ON that box, at its size, framed on the speaker's face: 5 to 60 s. A scene with no such box gets the default corner, and the result says so. `box`: a free rectangle in % of the frame, for a place of your choice. `position`: a named corner (top-left, top-right, bottom-left, bottom-right, center), only when the creator asks for a corner. `size` (window width in %) only goes with position. Free.",
+      "title": "Set picture-in-picture",
+      "description": "Show the speaker in a window ON TOP of a B-roll (the \"pop-out\"; it changes the picture, not the sound). `enabled: false` turns it off. Without position or box, the code renders the scene, finds the box it keeps empty for the camera (the \"empty-box\" problem look_at_montage reports) and puts the window ON that box, at its size, framed on the speaker's face: 5 to 60 s. A scene with no such box gets the default corner, and the result says so. `box`: a free rectangle in % of the frame, for a place of your choice. `position`: a named corner (top-left, top-right, bottom-left, bottom-right, center), only when the creator asks for a corner. `size` (window width in %) only goes with position. Free. A shortcut: it ignores the card's angle, the framing inside it and how it comes in; set_layout sets those, and any place or size.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -2435,6 +3060,1060 @@
         "additionalProperties": false
       },
       "annotations": {
+        "title": "Set picture-in-picture",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "set_video_motion",
+      "title": "Set video motion",
+      "description": "Make the speaker's video make room during one scene already placed, or keep it still. Ask a `space`: { kind: \"decale\", cote, place, style } moves the video aside and frees exactly `place` of the frame on that side (scene over the video, P9); { kind: \"carte\", forme, position, largeur } tightens it from the full frame into a camera card (P1 or P9); { kind: \"reste\" } keeps it still. One question decides, never the kind of content: does the speaker's face matter at this moment, and how much room does what you show need? Small thing and the face matters: keep the video in place and lay a card or an object over it. Needs room and the face still matters: the video moves aside (kind decale). The face no longer matters: a full-frame scene (P1), with the speaker in a camera card if you want them seen (kind carte). By default at most one scene in three moves the video, never two in a row; the creator's request can ask for more. Or name a shortcut in `preset`: glisse-bord-flou (decale glisse, up to 36 %), pousse-cote (decale pousse, up to 34 %), cercle-coin (a round card in the free corner), respiration (a slight move in), null (still). The code computes where the picture goes from the scene's face, format and length; preview and export play the same. Refused with the fix to make: no face on screen at that moment, a shared screen, a scene not drawn on the montage, a layout that already places the speaker (apply_layout to P9 or P1 first), a place the face does not leave (the refusal gives the largest that holds), or video motion closed on this account (nothing is written). A page drawn without this space may sit under the video: the result says so, and a new scene drawn with `space` (measure_scene then insert_scene with its brollId) paints the place the video frees. carte-detachee is the reverse, for a SHARED SCREEN only (a tutorial, chain D): the speaker's camera card stays still exactly where the source shows it, during the whole scene (scene in P9, P2 or P4; no face needed), while ordinary zooms (add_zoom, in place 0.4 s before the word that points at the screen) show the screen beside it. A zoom must never show the camera card of the source, or the speaker appears twice. Refused off a shared screen, or when no camera card of the source is measured; preset null removes it. Free. On a camera card placed by the Layout, how it comes in from the full frame (glisse, pousse, cercle, rapprochement, to the card as set) is set_layout's camera.entry: this tool ignores the card's place, angle and framing.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "brollId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128,
+            "description": "The scene (its id from get_project_state or insert_scene)."
+          },
+          "space": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "reste",
+                  "decale",
+                  "carte"
+                ],
+                "description": "reste: the video stays in place. decale: it moves aside to free a place on one side. carte: it tightens from the full frame into a camera card."
+              },
+              "cote": {
+                "description": "decale: the side to free, away from the face: gauche or droite in 16:9, haut or bas in 9:16 and 4:5.",
+                "type": "string",
+                "enum": [
+                  "gauche",
+                  "droite",
+                  "haut",
+                  "bas"
+                ]
+              },
+              "place": {
+                "description": "decale: the share of the frame to free on that side, 0.1 to 0.6. The code moves the video by exactly that much, never cutting the face; when the face leaves less room, the refusal gives the largest place that holds.",
+                "type": "number",
+                "minimum": 0.1,
+                "maximum": 0.6
+              },
+              "style": {
+                "description": "decale: glisse (slides, blurred only while it moves, comes back before the cut) or pousse (pushes and stays until the cut). Default glisse.",
+                "type": "string",
+                "enum": [
+                  "glisse",
+                  "pousse"
+                ]
+              },
+              "forme": {
+                "description": "carte: the camera card's shape, as in the Camera tab. Default circle.",
+                "type": "string",
+                "enum": [
+                  "wide",
+                  "square",
+                  "portrait",
+                  "vertical",
+                  "circle",
+                  "pill"
+                ]
+              },
+              "position": {
+                "description": "carte: where the card goes; coin-libre lets the code pick the corner away from the free side. Default coin-libre.",
+                "type": "string",
+                "enum": [
+                  "top-left",
+                  "top-right",
+                  "bottom-left",
+                  "bottom-right",
+                  "center",
+                  "coin-libre"
+                ]
+              },
+              "largeur": {
+                "description": "carte: the card's width in % of the frame width, 10 to 50.",
+                "type": "number",
+                "minimum": 10,
+                "maximum": 50
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "additionalProperties": false,
+            "description": "The space the speaker's video makes during the scene. One question decides, never the kind of content: does the speaker's face matter at this moment, and how much room does what you show need? Small thing and the face matters: keep the video in place and lay a card or an object over it. Needs room and the face still matters: the video moves aside (kind decale). The face no longer matters: a full-frame scene (P1), with the speaker in a camera card if you want them seen (kind carte). By default at most one scene in three moves the video, never two in a row; the creator's request can ask for more."
+          },
+          "preset": {
+            "description": "A shortcut instead of `space`, or null to keep the video still (and remove a detached card). carte-detachee: shared screen with a measured camera card only. `space` wins when both are given. Never keys: the code computes them.",
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "glisse-bord-flou",
+                  "cercle-coin",
+                  "pousse-cote",
+                  "respiration",
+                  "carte-detachee"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "expectedRevision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "projectId",
+          "brollId"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "title": "Set video motion",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "list_assets",
+      "title": "List assets",
+      "description": "The images and videos of this project's library: the creator's own imports first in time, then what search_stock, generate_image or place_media copied in. id, name, kind, size and what it shows (when an import pass wrote it). The creator's own media come first: look here before search_stock or generate_image. An asset id never comes from you; an empty list means nothing is imported, say so. Free.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "limit": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100
+          }
+        },
+        "required": [
+          "projectId"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "title": "List assets",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "search_stock",
+      "title": "Search stock footage",
+      "description": "Search the free stock libraries the Media panel uses (Pexels, Pixabay) for photos or videos. Each result gives its provider, licence, size, credit and the `downloadUrl` to pass to place_media (stock), which copies the file into the project. Search in English, a few concrete words of what the picture shows. The creator's own media first (list_assets). Free; nothing is copied until place_media. When this server cannot reach the stock libraries (a local server carries no stock keys), the answer says so instead of an empty result; whoami tells it beforehand.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string",
+            "minLength": 2,
+            "maxLength": 100,
+            "description": "A few concrete words of what the picture shows, in English."
+          },
+          "kind": {
+            "description": "Default image.",
+            "type": "string",
+            "enum": [
+              "image",
+              "video"
+            ]
+          },
+          "orientation": {
+            "description": "Default: the project's format (portrait for 9:16), or landscape without a project.",
+            "type": "string",
+            "enum": [
+              "landscape",
+              "portrait"
+            ]
+          },
+          "projectId": {
+            "description": "Optional: the project, for its orientation.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          }
+        },
+        "required": [
+          "query"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "title": "Search stock footage",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "generate_image",
+      "title": "Generate image",
+      "description": "Generate one image (the generator our scene drawer uses) and copy it into the project's library; it COSTS 50 credits per image from the creator's account, the price of one generated image in the app. Use it only when neither the creator's media (list_assets) nor the stock (search_stock) has the picture. Describe what the picture shows, never text inside it. Then place_media with the assetId it returns. At most 10 images a minute per account. Refused before any charge when this server cannot reach the image model (a local server never can) or when the credits are short; when the generation fails, the result says whether the credits came back.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "prompt": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 1000,
+            "description": "What the picture shows, concretely: subject, setting, light. No text in the picture."
+          },
+          "format": {
+            "description": "Default: the shape of the place to fill, else 16:9.",
+            "type": "string",
+            "enum": [
+              "1:1",
+              "16:9",
+              "9:16",
+              "4:3",
+              "3:4"
+            ]
+          },
+          "style": {
+            "description": "Default photo.",
+            "type": "string",
+            "enum": [
+              "photo",
+              "illustration",
+              "3d",
+              "plat"
+            ]
+          }
+        },
+        "required": [
+          "projectId",
+          "prompt"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "title": "Generate image",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "place_media",
+      "title": "Place media",
+      "description": "Put a picture or a video in the place the speaker's video frees, or in a box. The media: an `assetId` of the project's library (list_assets, the creator's own media first), a `stock` result (search_stock), or a `web` file address (copied into the project, with its origin; a web image without a stated licence is flagged by check_edit). With no media named, `brollId` must already be a media: it is placed again. Where: `brollId` (a scene or media already on the montage: the media takes its place and moment) or `at` (a new media on a spoken word, with a length). With a `space` (decale or carte, as in set_video_motion), the code moves the speaker's video and fills the freed place exactly with the media, cropped around `focus`; refused with the place to fill when the space frees none (the video stays, or breathes) or the face leaves no room. With a `box` and no space, the media sits in that box and the video does not move. The video is always drawn over the media. Free (generate_image is the paid one).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "brollId": {
+            "description": "A scene or media already placed: the media replaces it, on its moment.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 128
+          },
+          "at": {
+            "description": "A new media on a spoken word, when no brollId is given.",
+            "type": "object",
+            "properties": {
+              "startWordKey": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 40
+              },
+              "durationFrames": {
+                "description": "Length at 30 fps. Default 120 (4 s).",
+                "type": "integer",
+                "minimum": 15,
+                "maximum": 1800
+              }
+            },
+            "required": [
+              "startWordKey"
+            ],
+            "additionalProperties": false
+          },
+          "assetId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "stock": {
+            "type": "object",
+            "properties": {
+              "provider": {
+                "type": "string",
+                "enum": [
+                  "pexels",
+                  "pixabay"
+                ]
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "image",
+                  "video"
+                ]
+              },
+              "downloadUrl": {
+                "type": "string",
+                "minLength": 8,
+                "maxLength": 2048,
+                "description": "The downloadUrl of a search_stock result."
+              },
+              "title": {
+                "type": "string",
+                "maxLength": 120
+              }
+            },
+            "required": [
+              "provider",
+              "kind",
+              "downloadUrl"
+            ],
+            "additionalProperties": false
+          },
+          "web": {
+            "type": "object",
+            "properties": {
+              "url": {
+                "type": "string",
+                "minLength": 8,
+                "maxLength": 2048,
+                "description": "A public http(s) address of the image or MP4 file itself."
+              },
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "image",
+                  "video"
+                ]
+              },
+              "pageUrl": {
+                "description": "The page the file comes from, for its origin.",
+                "type": "string",
+                "maxLength": 2048
+              },
+              "license": {
+                "description": "The licence the page states, when it states one. Without it, check_edit flags the media.",
+                "type": "string",
+                "maxLength": 200
+              },
+              "captured": {
+                "description": "true when the file is your own screen capture of `pageUrl` (a site the video talks about).",
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "url"
+            ],
+            "additionalProperties": false
+          },
+          "space": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "reste",
+                  "decale",
+                  "carte"
+                ],
+                "description": "reste: the video stays in place. decale: it moves aside to free a place on one side. carte: it tightens from the full frame into a camera card."
+              },
+              "cote": {
+                "description": "decale: the side to free, away from the face: gauche or droite in 16:9, haut or bas in 9:16 and 4:5.",
+                "type": "string",
+                "enum": [
+                  "gauche",
+                  "droite",
+                  "haut",
+                  "bas"
+                ]
+              },
+              "place": {
+                "description": "decale: the share of the frame to free on that side, 0.1 to 0.6. The code moves the video by exactly that much, never cutting the face; when the face leaves less room, the refusal gives the largest place that holds.",
+                "type": "number",
+                "minimum": 0.1,
+                "maximum": 0.6
+              },
+              "style": {
+                "description": "decale: glisse (slides, blurred only while it moves, comes back before the cut) or pousse (pushes and stays until the cut). Default glisse.",
+                "type": "string",
+                "enum": [
+                  "glisse",
+                  "pousse"
+                ]
+              },
+              "forme": {
+                "description": "carte: the camera card's shape, as in the Camera tab. Default circle.",
+                "type": "string",
+                "enum": [
+                  "wide",
+                  "square",
+                  "portrait",
+                  "vertical",
+                  "circle",
+                  "pill"
+                ]
+              },
+              "position": {
+                "description": "carte: where the card goes; coin-libre lets the code pick the corner away from the free side. Default coin-libre.",
+                "type": "string",
+                "enum": [
+                  "top-left",
+                  "top-right",
+                  "bottom-left",
+                  "bottom-right",
+                  "center",
+                  "coin-libre"
+                ]
+              },
+              "largeur": {
+                "description": "carte: the card's width in % of the frame width, 10 to 50.",
+                "type": "number",
+                "minimum": 10,
+                "maximum": 50
+              }
+            },
+            "required": [
+              "kind"
+            ],
+            "additionalProperties": false,
+            "description": "The space the speaker's video makes during the scene. One question decides, never the kind of content: does the speaker's face matter at this moment, and how much room does what you show need? Small thing and the face matters: keep the video in place and lay a card or an object over it. Needs room and the face still matters: the video moves aside (kind decale). The face no longer matters: a full-frame scene (P1), with the speaker in a camera card if you want them seen (kind carte). By default at most one scene in three moves the video, never two in a row; the creator's request can ask for more."
+          },
+          "preset": {
+            "description": "A shortcut instead of `space` (glisse-bord-flou, pousse-cote, cercle-coin).",
+            "type": "string",
+            "enum": [
+              "glisse-bord-flou",
+              "cercle-coin",
+              "pousse-cote",
+              "respiration",
+              "carte-detachee"
+            ]
+          },
+          "box": {
+            "description": "Where the media sits when no space is asked.",
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "y": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "w": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 1
+              },
+              "h": {
+                "type": "number",
+                "exclusiveMinimum": 0,
+                "maximum": 1
+              }
+            },
+            "required": [
+              "x",
+              "y",
+              "w",
+              "h"
+            ],
+            "additionalProperties": false
+          },
+          "focus": {
+            "description": "The point of the media to keep when it is cropped to the place (0-1 of the media). Default the centre.",
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              },
+              "y": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              }
+            },
+            "required": [
+              "x",
+              "y"
+            ],
+            "additionalProperties": false
+          },
+          "expectedRevision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "projectId"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "title": "Place media",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "capture_web_page",
+      "title": "Capture web page",
+      "description": "Capture a public web page into the project's library, with its origin (address, date): the first screen (mode viewport, default), the whole page cut at six screens (fullpage), or the article alone laid out cleanly (article). Then place_media with the assetId it returns. Free, a daily allowance per account, one capture at a time. A site that blocks automated captures (a bot check, a CAPTCHA) is refused and never bypassed: offer another source, or ask the creator to take the screenshot and import it. The page's own text is never returned.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "url": {
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 2048,
+            "description": "The public http(s) page to capture."
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "viewport",
+              "fullpage",
+              "article"
+            ]
+          },
+          "format": {
+            "description": "The window shape. Default 16:9.",
+            "type": "string",
+            "enum": [
+              "16:9",
+              "9:16",
+              "1:1"
+            ]
+          }
+        },
+        "required": [
+          "projectId",
+          "url"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "title": "Capture web page",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": true
+      }
+    },
+    {
+      "name": "set_transform",
+      "title": "Set position and size",
+      "description": "Place an image, a stock clip or an imported media on the frame, as the creator does by hand on the preview: move (x, y), resize (w, h), turn (rotation in degrees, 0 = straight), trim its edges (crop { l, t, r, b }, null removes it), change its frame (shape rect, round, or circle: a square frame on screen), make it appear and leave (animIn / animOut: fade, slide with a direction, zoom; none removes), or give it back its full frame (fullFrame: true, alone). Coordinates are fractions of the frame, 0 to 1 from the top left; what you leave out is kept. A full-frame video starts from the full frame. Look at the frame first: call look_at_montage at that moment before moving it over the speaker. It does nothing on a drawn scene: to move or resize what a scene shows, use measure_scene then insert_scene with its brollId (you redraw the page).",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectId": {
+            "type": "string",
+            "description": "The project id (from list_projects or clone_project)."
+          },
+          "expectedRevision": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "The editRevision you last read (get_project_state, or the last write's result). If the project changed since, nothing is applied and the result is a conflict with the current revision."
+          },
+          "confirm": {
+            "type": "boolean",
+            "description": "true to confirm a mass destructive gesture (more than 3 B-rolls removed, all words restored, or more than 20 % of the remaining words cut in one call)."
+          },
+          "id": {
+            "type": "string"
+          },
+          "x": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "y": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "w": {
+            "type": "number",
+            "minimum": 0.05,
+            "maximum": 1
+          },
+          "h": {
+            "type": "number",
+            "minimum": 0.02,
+            "maximum": 1,
+            "description": "Height, fraction of the frame height. Left out: kept (an image follows its file's proportions)."
+          },
+          "rotation": {
+            "type": "number",
+            "minimum": -180,
+            "maximum": 180,
+            "description": "Degrees; 0 straightens it."
+          },
+          "crop": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "description": "What is trimmed from each edge of the media, fractions of the media. null removes the crop.",
+            "properties": {
+              "l": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 0.9
+              },
+              "t": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 0.9
+              },
+              "r": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 0.9
+              },
+              "b": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 0.9
+              }
+            }
+          },
+          "shape": {
+            "type": "string",
+            "enum": [
+              "rect",
+              "round",
+              "circle"
+            ],
+            "description": "The frame: rect, round (rounded corners), circle (a square frame on screen)."
+          },
+          "animIn": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "description": "How it appears: fade, slide (from a direction) or zoom; none or null removes it. Lasts durationSec (0.4 s by default), at most half the media.",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "none",
+                  "fade",
+                  "slide",
+                  "zoom"
+                ]
+              },
+              "durationSec": {
+                "type": "number",
+                "minimum": 0.1,
+                "maximum": 2
+              },
+              "direction": {
+                "type": "string",
+                "enum": [
+                  "left",
+                  "right",
+                  "up",
+                  "down"
+                ],
+                "description": "slide only: where it comes from (entrance) or goes to (exit)."
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "animOut": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "description": "How it leaves: fade, slide (from a direction) or zoom; none or null removes it. Lasts durationSec (0.4 s by default), at most half the media.",
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "none",
+                  "fade",
+                  "slide",
+                  "zoom"
+                ]
+              },
+              "durationSec": {
+                "type": "number",
+                "minimum": 0.1,
+                "maximum": 2
+              },
+              "direction": {
+                "type": "string",
+                "enum": [
+                  "left",
+                  "right",
+                  "up",
+                  "down"
+                ],
+                "description": "slide only: where it comes from (entrance) or goes to (exit)."
+              }
+            },
+            "required": [
+              "kind"
+            ]
+          },
+          "opacity": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 1
+          },
+          "radius": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 0.5
+          },
+          "shadow": {
+            "type": "boolean"
+          },
+          "fullFrame": {
+            "type": "boolean",
+            "enum": [
+              true
+            ],
+            "description": "Gives the media its full frame back, as the Edit panel's Full frame. Send it alone."
+          }
+        },
+        "required": [
+          "projectId",
+          "id"
+        ],
+        "anyOf": [
+          {
+            "required": [
+              "x"
+            ]
+          },
+          {
+            "required": [
+              "y"
+            ]
+          },
+          {
+            "required": [
+              "w"
+            ]
+          },
+          {
+            "required": [
+              "h"
+            ]
+          },
+          {
+            "required": [
+              "rotation"
+            ]
+          },
+          {
+            "required": [
+              "crop"
+            ]
+          },
+          {
+            "required": [
+              "shape"
+            ]
+          },
+          {
+            "required": [
+              "animIn"
+            ]
+          },
+          {
+            "required": [
+              "animOut"
+            ]
+          },
+          {
+            "required": [
+              "opacity"
+            ]
+          },
+          {
+            "required": [
+              "radius"
+            ]
+          },
+          {
+            "required": [
+              "shadow"
+            ]
+          },
+          {
+            "required": [
+              "fullFrame"
+            ]
+          }
+        ]
+      },
+      "annotations": {
+        "title": "Set position and size",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "add_to_library",
+      "title": "Add to library",
+      "description": "Add one file to a library. With `projectId`: that project's media (list_assets), PNG, JPEG or WebP images up to 25 MB, MP4 or WebM videos up to 150 MB, MP3, WAV or M4A audio up to 15 MB. Without it: the creator's own library, reused in any project (list_library), PNG, JPEG or WebP images up to 25 MB and MP4 or WebM videos up to 150 MB, 200 items at most. The file: `url`, a public http(s) address of the file itself (copied, never read again at its address), or `path`, an absolute path of one file on this computer, which only the local server reads, and only inside a folder the creator allowed (a root of the MCP client, or --allow-dir when the local server is launched); the creator's file is copied, never moved. A file the creator has and you cannot reach: library_drop_page. `use` (account only): reference (it shows the creator's taste) or clip (an intro or a sequence to reuse); default reference for an image, clip for a video. `description`: what an image or a video shows, when you have seen it; it is kept as is. Without it, Brollss describes the file once. At most 60 files a minute per account, counted with the Studio's uploads. Then place_media with the assetId (an image or a video of the project), place_audio with the assetId (a sound or a music of the project), or copy_from_library with the itemId (the account library). Free.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectId": {
+            "description": "The project whose media receive the file. Without it, the creator's own library.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "url": {
+            "description": "A public http(s) address of the file itself.",
+            "type": "string",
+            "minLength": 8,
+            "maxLength": 2048
+          },
+          "path": {
+            "description": "An absolute path of one file on this computer, inside a folder the creator allowed. Local server only.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 1024
+          },
+          "name": {
+            "description": "The name shown in the library. Default: the file's name.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          },
+          "use": {
+            "description": "Account library only: reference or clip.",
+            "type": "string",
+            "enum": [
+              "reference",
+              "clip"
+            ]
+          },
+          "description": {
+            "description": "What the file shows, in one or two plain sentences, as you see it (people, place, objects, text on it). Kept as its description, so no vision model looks at it. Without it, Brollss describes it once.",
+            "type": "string",
+            "maxLength": 1000
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "title": "Add to library",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "list_library",
+      "title": "List library",
+      "description": "The creator's own library (Settings, My library): images and videos kept outside any project, most recently added first, searched and paged over all of them. Each item: id, name, type (image or video), use (reference: it shows the creator's taste; clip: a piece to reuse, like an intro), size, length, what it shows when known, and the creator's note. Filter by name with `query` (part of the name, any case), by `type`, by `use`. total is how many match; when nextCursor is not null, pass it back as cursor. To use an item in a video: copy_from_library, then place_media. Free.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "description": "Part of the item's name.",
+            "type": "string",
+            "maxLength": 80
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "image",
+              "video"
+            ]
+          },
+          "use": {
+            "type": "string",
+            "enum": [
+              "reference",
+              "clip"
+            ]
+          },
+          "limit": {
+            "description": "How many per page (default 20, at most 50).",
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 50
+          },
+          "cursor": {
+            "description": "The nextCursor of the previous page.",
+            "type": "string",
+            "maxLength": 200
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "title": "List library",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "copy_from_library",
+      "title": "Copy from library",
+      "description": "Copy an item of the creator's own library (list_library) into a project's media, like dragging it into the project in the Studio: once per project (a second call gives the same assetId back), nothing placed on the montage. The copy keeps the item's description; `description` fills it only when the item has none. Then place_media with the assetId. Free.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "itemId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "description": "An id from list_library."
+          },
+          "description": {
+            "description": "What the item shows, in one or two plain sentences, for an item list_library gives without `shows`. Kept as the copy's description; an item that already has one keeps its own.",
+            "type": "string",
+            "maxLength": 1000
+          }
+        },
+        "required": [
+          "projectId",
+          "itemId"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "title": "Copy from library",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "library_drop_page",
+      "title": "Open library upload page",
+      "description": "A Brollss page where the creator drops their own files into a library: with `projectId`, that project's media; without it, the creator's own library. For files on the creator's computer that you cannot reach (a web chat, or the hosted server). Give drop_page_url to the creator, or open it for them in their browser when you can. They must be signed in to this account; the link works one hour, for several files. Writes nothing by itself. Then list_assets or list_library shows what arrived. Free.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectId": {
+            "description": "The project whose media receive the files. Without it, the creator's own library.",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          }
+        },
+        "additionalProperties": false
+      },
+      "annotations": {
+        "title": "Open library upload page",
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "place_audio",
+      "title": "Place audio",
+      "description": "Put one of the creator's own sounds or music tracks (an audio file of the project's media: list_assets, kind audio, or add_to_library) on the music layer at a moment, exactly like dropping it on the Music layer in the Studio: it starts there (right after a piece it would overlap), lasts the file's length, starts at the level the mixer advises for that file, with ducking and fades. `at` is montage seconds, \"m:ss\" or a word key. No room left on the music layer: refused. set_music_clip then tunes it by the clipId returned. The app's own tracks are add_music; the app's sound effects are add_sfx. Free.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "assetId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64,
+            "description": "An audio asset of this project (list_assets, kind audio)."
+          },
+          "at": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0
+              },
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 20
+              }
+            ],
+            "description": "Montage seconds, \"m:ss\", or a word key."
+          },
+          "expectedRevision": {
+            "description": "The editRevision you last read; a newer project gives a conflict and nothing is written.",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "projectId",
+          "assetId",
+          "at"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "title": "Place audio",
         "readOnlyHint": false,
         "destructiveHint": false,
         "openWorldHint": false
@@ -2442,7 +4121,8 @@
     },
     {
       "name": "apply_layout",
-      "description": "Put a scene of the scene chain (one you drew with insert_scene, or one the app drew) in another layout, by code: free, instant, nothing redrawn, the same path as the Studio's Layouts panel. The scene is placed in its new box; a layout that keeps the speaker beside it frames the face (on a screen share, inside the camera card). A layout that does not hold is refused with the reason and the layouts that hold (list_layouts gives them for a moment). A background check films the result and marks it \"needs a fit\" when it sits badly; look_at_montage at the scene to judge it. A ready-made template is not a chain scene: redraw it with insert_scene and its brollId.",
+      "title": "Apply layout",
+      "description": "Put a scene of the scene chain (one you drew with insert_scene, or one the app drew) in another layout, by code: free, instant, nothing redrawn, the same path as the Studio's Layouts panel. The scene is placed in its new box; a layout that keeps the speaker beside it frames the face (on a screen share, inside the camera card). A layout that does not hold is refused with the reason and the layouts that hold (list_layouts gives them for a moment). A background check films the result and marks it \"needs a fit\" when it sits badly; look_at_montage at the scene to judge it. A ready-made template is not a chain scene: redraw it with insert_scene and its brollId. A shortcut of set_layout: it sets the layout only and ignores the speaker's share and side, the scene's own box and the camera card.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -2488,6 +4168,223 @@
         "additionalProperties": false
       },
       "annotations": {
+        "title": "Apply layout",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "set_layout",
+      "title": "Set custom layout",
+      "description": "Set how one scene of the scene chain is laid out, by code: free, instant, nothing redrawn, the same as the Studio's Layout tab. Only the fields you name change. `layout` (P1 to P9, P6R, P7L, PV); `speakerShare`: the speaker's share of a shared layout (P6, P6R, PV), 20 to 80 %, null for the layout's own; `speakerSide`: left or right (P6, P6R, P7L), top or bottom (PV); `sceneBox`: the scene's box in % of the frame where the scene is a box (P2, P4, P5, P7L, P9), null for the layout's own. `camera`: the speaker's card, a free object: x, y, w in % of the frame, shape (rect, circle, aspect, pill), radius, shadow, border, borderColor, rotation (degrees, clockwise), frame (focusX, focusY from 0 to 1: the point centred in the card; scale from 1, the widest, to 64: how close), entry (coupe, fondu, or glisse, pousse, cercle, rapprochement: from the full frame to the card as set). Changing the layout keeps the card's shape, corners, border and framing. Refused with the reason and nothing written: a layout that does not hold for this video (the layouts that hold come with it), a side or a share the layout does not have, a scene box under the speaker's card, a card that would leave the frame, a turned card with a moving entry, a card too small for a moving entry. A background check films a moved scene and marks it \"needs a fit\" when it sits badly. apply_layout, set_broll_pip and set_video_motion stay as shortcuts.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "brollId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "layout": {
+            "type": "string",
+            "enum": [
+              "P1",
+              "P2",
+              "P3",
+              "P4",
+              "P5",
+              "P6",
+              "P6R",
+              "P7",
+              "P7L",
+              "P8",
+              "P9",
+              "PV"
+            ]
+          },
+          "speakerShare": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 20,
+                "maximum": 80
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "speakerSide": {
+            "type": "string",
+            "enum": [
+              "left",
+              "right",
+              "top",
+              "bottom"
+            ]
+          },
+          "sceneBox": {
+            "anyOf": [
+              {
+                "type": "object",
+                "properties": {
+                  "x": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 100
+                  },
+                  "y": {
+                    "type": "number",
+                    "minimum": 0,
+                    "maximum": 100
+                  },
+                  "w": {
+                    "type": "number",
+                    "minimum": 15,
+                    "maximum": 100
+                  },
+                  "h": {
+                    "type": "number",
+                    "minimum": 15,
+                    "maximum": 100
+                  }
+                },
+                "required": [
+                  "x",
+                  "y",
+                  "w",
+                  "h"
+                ],
+                "additionalProperties": false
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "camera": {
+            "type": "object",
+            "properties": {
+              "x": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100
+              },
+              "y": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100
+              },
+              "w": {
+                "type": "number",
+                "minimum": 4,
+                "maximum": 100
+              },
+              "shape": {
+                "type": "string",
+                "enum": [
+                  "rect",
+                  "circle"
+                ]
+              },
+              "aspect": {
+                "type": "number",
+                "minimum": 0.041666666666666664,
+                "maximum": 24
+              },
+              "pill": {
+                "type": "boolean"
+              },
+              "radius": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 80
+              },
+              "shadow": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100
+              },
+              "border": {
+                "type": "boolean"
+              },
+              "borderColor": {
+                "type": "string",
+                "maxLength": 7
+              },
+              "rotation": {
+                "type": "number",
+                "minimum": -180,
+                "maximum": 180
+              },
+              "frame": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "properties": {
+                      "focusX": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      "focusY": {
+                        "type": "number",
+                        "minimum": 0,
+                        "maximum": 1
+                      },
+                      "scale": {
+                        "type": "number",
+                        "minimum": 1,
+                        "maximum": 64
+                      }
+                    },
+                    "required": [
+                      "focusX",
+                      "focusY",
+                      "scale"
+                    ],
+                    "additionalProperties": false
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "entry": {
+                "type": "string",
+                "enum": [
+                  "coupe",
+                  "fondu",
+                  "glisse",
+                  "pousse",
+                  "cercle",
+                  "rapprochement"
+                ]
+              }
+            },
+            "additionalProperties": false
+          },
+          "expectedRevision": {
+            "description": "The editRevision you last read; a newer project gives a conflict and nothing is written.",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "projectId",
+          "brollId"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "title": "Set custom layout",
         "readOnlyHint": false,
         "destructiveHint": false,
         "openWorldHint": false
@@ -2495,6 +4392,7 @@
     },
     {
       "name": "get_captions",
+      "title": "Get captions",
       "description": "Read the project's subtitle track: whether it is on, whether it covers the whole video or chosen passages (each with its word keys, montage start and end in seconds, and words), its style (catalogue look, preset, position, size, colours, words per line), `styleBy` (whether the creator chose it) and the creator's default style when the account has one, and `catalogue`: the styles set_captions takes in `style` (id, English and French names, family). Free. Change it with set_captions (whole video, chosen passages in `ranges`, a catalogue `style`) or add_caption (one passage).",
       "inputSchema": {
         "type": "object",
@@ -2511,6 +4409,7 @@
         "additionalProperties": false
       },
       "annotations": {
+        "title": "Get captions",
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
@@ -2518,6 +4417,7 @@
     },
     {
       "name": "set_captions",
+      "title": "Set captions",
       "description": "Turn the project's subtitle track on or off. When on, every spoken word of the montage is captioned (2 lines max, cut words skipped, the word being spoken highlighted) and burned into the export. This is the tool for subtitles on the WHOLE video, when the user asks for that (\"captions on the whole video\", \"sous-titres sur toute la vidéo\"). One call covers the whole video: no word keys. A full edit does not turn it on unless asked: it places subtitles on a few key passages with add_caption. `preset`: bold (default, big uppercase, highlighted word), karaoke (coloured active word), clean (plain white), minimal (small, on a dark box). `position` bottom|middle|top. The style is set here too, when the user asks: `color` is the text colour (#rrggbb, or yellow, white, red, green, blue, orange, pink, purple, cyan, black; French names too), `highlightColor` the colour of the word being spoken (never the text colour: it would not show, so the code switches it to white, or yellow on white text), `sizePct` the size in % of the frame's short side (clean 5, bold 6.5; \"bigger\" is 8 to 10, max 12). A preset resets the style, so send the colour and size in the same call as the preset. `highlight` and `maxWordsPerLine` only when the user asks. enabled:false removes them. `style` puts a whole look from the subtitle catalogue at once (font, colours, spoken word, box, animation), by name; the position, a size the creator set and the passages stay. When the creator chose the style (on the track, or as their default), keep it: no style, preset or colours unless they ask for a new look. When they have not, a full edit picks the style that suits the video.\n\nThrough this server: get_captions lists the catalogue styles (`catalogue`: id, French and English names, family) for `style`. The answer reads back the track as written: each passage with its keys, montage start and end in seconds and its words, and the style it wears. When the creator chose the subtitle style (styleBy creator, or a default style on the account), style, preset and colours are left out unless you pass lookAsked: true because the creator asked to change their look.",
       "inputSchema": {
         "type": "object",
@@ -2576,7 +4476,7 @@
               "halo",
               "thick-outline"
             ],
-            "description": "A style of the subtitle catalogue (#496), its whole look at once: classic (Classic), discreet (Subtle), paragraph (Paragraph), banner (Banner), two-words (Two words), word-yellow (Yellow word), word-box (Boxed word), word-caps (Capitals), word-slanted (Slanted), word-pop (Pop), impact (Impact), green (Green), lemon-italic (Lemon italic), condensed (Condensed), heavy (Heavy), box-white (White box), box-orange (Orange box), box-blue (Blue box), box-yellow (Yellow box), highlighter (Highlighter), reading (Reading), reading-box (Boxed reading), reading-two (Two-word reading), big-reading (Big reading), dark-reading (Dark reading), neon (Neon), pixel (Pixel), terminal (Terminal), halo (Halo), thick-outline (Thick outline)"
+            "description": "A style of the subtitle catalogue, its whole look at once: classic (Classic), discreet (Subtle), paragraph (Paragraph), banner (Banner), two-words (Two words), word-yellow (Yellow word), word-box (Boxed word), word-caps (Capitals), word-slanted (Slanted), word-pop (Pop), impact (Impact), green (Green), lemon-italic (Lemon italic), condensed (Condensed), heavy (Heavy), box-white (White box), box-orange (Orange box), box-blue (Blue box), box-yellow (Yellow box), highlighter (Highlighter), reading (Reading), reading-box (Boxed reading), reading-two (Two-word reading), big-reading (Big reading), dark-reading (Dark reading), neon (Neon), pixel (Pixel), terminal (Terminal), halo (Halo), thick-outline (Thick outline)"
           },
           "preset": {
             "type": "string",
@@ -2627,12 +4527,12 @@
                 "from": {
                   "type": "string",
                   "pattern": "^\\d+:\\d+$",
-                  "description": "Transcript word key \"segmentIndex:wordIndex\" (from WORD INDEX)"
+                  "description": "Transcript word key \"segmentIndex:wordIndex\", copied from the transcript you were given, never invented"
                 },
                 "to": {
                   "type": "string",
                   "pattern": "^\\d+:\\d+$",
-                  "description": "Transcript word key \"segmentIndex:wordIndex\" (from WORD INDEX)"
+                  "description": "Transcript word key \"segmentIndex:wordIndex\", copied from the transcript you were given, never invented"
                 }
               },
               "required": [
@@ -2640,6 +4540,11 @@
                 "to"
               ]
             }
+          },
+          "reason": {
+            "type": "string",
+            "maxLength": 200,
+            "description": "Only when the creator asked for this gesture: their request in one line (\"zoom on the button when I click\"). The rubric then reports its taste limits (spacing, count) as a note, never as a point to fix. Leave out for a gesture you chose."
           }
         },
         "required": [
@@ -2648,6 +4553,7 @@
         ]
       },
       "annotations": {
+        "title": "Set captions",
         "readOnlyHint": false,
         "destructiveHint": false,
         "openWorldHint": false
@@ -2655,7 +4561,8 @@
     },
     {
       "name": "add_caption",
-      "description": "Put subtitles on ONE short passage: the words where the speaker puts the emphasis (the hook, a key figure, the punchline, a strong statement), a few words, under 8 s. The passage joins the subtitled passages of the project's subtitle track; call it once per passage, several in the same turn: each call adds one and keeps the others. This is how a full edit places its subtitles, spread over the video. Keys come from the transcript, never from you. `layout` and `align` only when the user asks for a style. Subtitles on the whole video only when the user asks for them in so many words (\"subtitles on the whole video\", \"sous-titres partout\"): that is set_captions, never a long add_caption.",
+      "title": "Add caption",
+      "description": "Put subtitles on ONE short passage: the words where the speaker puts the emphasis (the hook, a key figure, the punchline, a strong statement), a few words, under 8 s. The passage joins the subtitled passages of the project's subtitle track; call it once per passage, several in the same turn: each call adds one and keeps the others. This is how a full edit places its subtitles, spread over the video. Keys come from the transcript, never from you. `layout` and `align` only when the user asks for a style. Subtitles on the whole video only when the user asks for them in so many words (\"subtitles on the whole video\", \"sous-titres partout\"): that is set_captions, never a long add_caption. On this server a passage has no position or animation of its own: the whole track has one position (set_captions position: bottom, middle or top).",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -2675,30 +4582,12 @@
           "fromWordKey": {
             "type": "string",
             "pattern": "^\\d+:\\d+$",
-            "description": "Transcript word key \"segmentIndex:wordIndex\" (from WORD INDEX)"
+            "description": "Transcript word key \"segmentIndex:wordIndex\", copied from the transcript you were given, never invented"
           },
           "toWordKey": {
             "type": "string",
             "pattern": "^\\d+:\\d+$",
-            "description": "Transcript word key \"segmentIndex:wordIndex\" (from WORD INDEX)"
-          },
-          "layout": {
-            "type": "string",
-            "enum": [
-              "pop",
-              "slide",
-              "fade",
-              "type"
-            ]
-          },
-          "align": {
-            "type": "string",
-            "enum": [
-              "bottom-center",
-              "bottom-left",
-              "bottom-right",
-              "top-center"
-            ]
+            "description": "Transcript word key \"segmentIndex:wordIndex\", copied from the transcript you were given, never invented"
           }
         },
         "required": [
@@ -2708,6 +4597,7 @@
         ]
       },
       "annotations": {
+        "title": "Add caption",
         "readOnlyHint": false,
         "destructiveHint": false,
         "openWorldHint": false
@@ -2715,20 +4605,107 @@
     },
     {
       "name": "list_music",
-      "description": "The background music tracks available: id and title. Call it before set_music; a track id never comes from you. Says which track the project plays today, if any.",
+      "title": "List music",
+      "description": "The music library and the music placed. `tracks`: each library track's id (for set_music and set_music_clip), title, tags (style, moods, uses, bpm, energy, instruments, loop), length in seconds, license and `credit`: the line to paste in the video description when the license asks for one. Narrow `tracks` with the same filters as the Audio panel: style, mood, use, energy (each a list; a track passes if it has one of the values), bpmMin/bpmMax, and text (words searched in title, author and tags). `placed`: each piece of music on the video with its clipId (for set_music_clip), track, montage start and end in seconds, level in dB (0 = the file's own level), ducking under the voice and its depth, and fades. Free.",
       "inputSchema": {
         "type": "object",
         "properties": {
           "projectId": {
             "type": "string",
-            "description": "The project id (from list_projects or clone_project)."
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "style": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "lofi",
+                "acoustic",
+                "electronic",
+                "cinematic",
+                "ambient",
+                "jazz",
+                "funk",
+                "hiphop",
+                "folk",
+                "world",
+                "classical",
+                "rock"
+              ]
+            }
+          },
+          "mood": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "calm",
+                "warm",
+                "happy",
+                "upbeat",
+                "playful",
+                "dreamy",
+                "nostalgic",
+                "emotional",
+                "inspiring",
+                "epic",
+                "mysterious",
+                "suspense",
+                "dark",
+                "tech"
+              ]
+            }
+          },
+          "use": {
+            "description": "voiceover = under speech",
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "voiceover",
+                "tutorial",
+                "vlog",
+                "intro",
+                "outro",
+                "transition",
+                "montage"
+              ]
+            }
+          },
+          "energy": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": [
+                "low",
+                "medium",
+                "high"
+              ]
+            }
+          },
+          "bpmMin": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 400
+          },
+          "bpmMax": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 400
+          },
+          "text": {
+            "type": "string",
+            "maxLength": 120
           }
         },
         "required": [
           "projectId"
-        ]
+        ],
+        "additionalProperties": false
       },
       "annotations": {
+        "title": "List music",
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
@@ -2736,7 +4713,8 @@
     },
     {
       "name": "set_music",
-      "description": "Set the background music from the library (the track id comes from list_music) over the whole video, or clear it with trackId: null. Without `volume`, the level starts where the app's mixer starts: computed from the track's loudness so the music sits under the voice. `level` chooses: \"recommended\" sets that starting level (and the mixer's ducking and fades), even on the track already placed; \"keep\" keeps the level of the music in place, even for another track; without it, a different track starts at the recommended level and the same track keeps its settings. The answer says which applied: given, recommended or kept. check_audio then says how loud the music sits under the voice and in the pauses. `volume` 0 to 1 sets it by hand. `ducking` (default true) lowers the music while the speaker talks; `duck` picks how much: subtle (8 dB, the default), normal (12 dB) or strong (18 dB). `fadeInSec` and `fadeOutSec` (default 1 s and 3 s, 0 to 10). It replaces the music already placed, all its pieces. Free.",
+      "title": "Set music",
+      "description": "Set the background music from the library (the track id comes from list_music, or `find` picks the best match for tags: style, mood, use, energy, bpmMin, bpmMax, text) over the whole video, or clear it with trackId: null. Without `volume`, the level starts where the app's mixer starts: computed from the track's loudness so the music sits under the voice. `level` chooses: \"recommended\" sets that starting level (and the mixer's ducking and fades), even on the track already placed; \"keep\" keeps the level of the music in place, even for another track; without it, a different track starts at the recommended level and the same track keeps its settings. The answer says which applied: given, recommended or kept. check_audio then says how loud the music sits under the voice and in the pauses. `volumeDb` sets it by hand in dB like the panel (0 = the file's own level, -40 = silent), or `volume` 0 to 1. `ducking` (default true) lowers the music while the speaker talks; `duck` picks how much: subtle (8 dB, the default), normal (12 dB) or strong (18 dB). `fadeInSec` and `fadeOutSec` (default 1 s and 3 s, 0 to 10). It replaces the music already placed, all its pieces; set_music_clip changes one piece and keeps the others. Free.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -2746,6 +4724,7 @@
             "maxLength": 64
           },
           "trackId": {
+            "description": "A library id from list_music, or null to remove the music. Leave it out to pick by find.",
             "anyOf": [
               {
                 "type": "string",
@@ -2755,13 +4734,91 @@
               {
                 "type": "null"
               }
-            ],
-            "description": "A library id from list_music, or null to remove the music."
+            ]
+          },
+          "find": {
+            "description": "Without trackId: the tags of the track wanted (the same values as list_music's filters); the best library match is placed, and the answer names it. A tag outside the vocabulary is named in the refusal.",
+            "type": "object",
+            "properties": {
+              "style": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                ]
+              },
+              "mood": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                ]
+              },
+              "use": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                ]
+              },
+              "energy": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                ]
+              },
+              "bpmMin": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 400
+              },
+              "bpmMax": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 400
+              },
+              "text": {
+                "type": "string",
+                "maxLength": 120
+              }
+            },
+            "additionalProperties": false
           },
           "volume": {
             "type": "number",
             "minimum": 0,
             "maximum": 1
+          },
+          "volumeDb": {
+            "description": "The level in dB, like the panel's fader (0 = the file's own level, -40 = silent); wins over volume.",
+            "type": "number",
+            "minimum": -40,
+            "maximum": 0
           },
           "level": {
             "description": "recommended: the mixer's starting level for this track, even when it is already placed; keep: the level of the music in place, even for another track. Ignored when volume is given.",
@@ -2817,12 +4874,292 @@
           }
         },
         "required": [
-          "projectId",
-          "trackId"
+          "projectId"
         ],
         "additionalProperties": false
       },
       "annotations": {
+        "title": "Set music",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "set_audio_mix",
+      "title": "Set audio mix",
+      "description": "the rest of the Audio panel: sound effects master level (sfxVolumeDb, -40..+6, new projects start at -12: an absolute level in dB relative to the source file, not to the voice; typical values -18 to -12 under the voice), the voice as recorded or at YouTube level (voice: youtube brings it to -14 LUFS at export), and the voice level (voiceVolumeDb, 0 = as recorded; above 0 is refused with voice youtube, the voice would clip). At least one field",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectId": {
+            "type": "string",
+            "description": "The project id (from list_projects or clone_project)."
+          },
+          "expectedRevision": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "The editRevision you last read (get_project_state, or the last write's result). If the project changed since, nothing is applied and the result is a conflict with the current revision."
+          },
+          "confirm": {
+            "type": "boolean",
+            "description": "true to confirm a mass destructive gesture (more than 3 B-rolls removed, all words restored, or more than 20 % of the remaining words cut in one call)."
+          },
+          "sfxVolumeDb": {
+            "type": "number",
+            "minimum": -40,
+            "maximum": 6,
+            "description": "Absolute level in dB relative to the source file, not to the voice; typical values -18 to -12 under the voice."
+          },
+          "voice": {
+            "type": "string",
+            "enum": [
+              "as_recorded",
+              "youtube"
+            ],
+            "description": "youtube brings the voice to -14 LUFS at export (YouTube's playback level); as_recorded keeps the recorded level."
+          },
+          "voiceVolumeDb": {
+            "type": "number",
+            "minimum": -40,
+            "maximum": 6,
+            "description": "0 = as recorded. Above 0 is refused with voice youtube: the voice is already at -14 LUFS and would clip."
+          }
+        },
+        "anyOf": [
+          {
+            "required": [
+              "sfxVolumeDb"
+            ]
+          },
+          {
+            "required": [
+              "voice"
+            ]
+          },
+          {
+            "required": [
+              "voiceVolumeDb"
+            ]
+          }
+        ],
+        "required": [
+          "projectId"
+        ]
+      },
+      "annotations": {
+        "title": "Set audio mix",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "set_music_clip",
+      "title": "Set music clip",
+      "description": "Change one piece of music already placed, by its clipId (list_music `placed`), and leave the others as they are: `trackId` swaps the track (a library id from list_music), `volumeDb` sets its level in dB like the panel's fader (-40 to +6, 0 = the file's own level, -40 = silent), `ducking` and `duck` how it lowers under the voice, `fadeInSec` and `fadeOutSec` (0 to 10). Fields left out stay. `remove: true` takes this piece off the video (alone, without other fields). check_audio then says how it sits under the voice. Free.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "clipId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "trackId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "volumeDb": {
+            "type": "number",
+            "minimum": -40,
+            "maximum": 6
+          },
+          "ducking": {
+            "type": "boolean"
+          },
+          "duck": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "subtle",
+                  "normal",
+                  "strong"
+                ]
+              },
+              {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 30
+              }
+            ],
+            "description": "How much the music lowers under the voice: subtle (8 dB), normal (12 dB), strong (18 dB), or a depth in dB."
+          },
+          "fadeInSec": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 10
+          },
+          "fadeOutSec": {
+            "type": "number",
+            "minimum": 0,
+            "maximum": 10
+          },
+          "remove": {
+            "description": "true takes this piece of music off the video; give no other field with it.",
+            "type": "boolean"
+          },
+          "expectedRevision": {
+            "description": "The editRevision you last read; a newer project gives a conflict and nothing is written.",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "projectId",
+          "clipId"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "title": "Set music clip",
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "add_music",
+      "title": "Add music",
+      "description": "Place a library track at a moment, next to the music already there: `trackId` (list_music, or a favourite from list_favorites), or `find` (the same tags as set_music) for the best match; `at` is montage seconds, \"m:ss\" or a word key. The piece starts there (right after a piece it would overlap), lasts the track's length (it loops if stretched later), starts at the mixer's level with its ducking and fades, exactly like a track dropped from the Studio's library. `untilSec` (montage seconds, like `endSec` in list_music `placed`) stops it there instead of playing the whole track, with the mixer's fade-out at that end (at most half the piece); past the track's length it loops; past the free room it stops at the next piece or the end of the montage. No room left on the music layer: refused. set_music_clip then tunes it by the clipId returned. Free.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "trackId": {
+            "description": "A library id (list_music or list_favorites).",
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "find": {
+            "description": "Without trackId: the tags of the track wanted; the best library match is placed.",
+            "type": "object",
+            "properties": {
+              "style": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                ]
+              },
+              "mood": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                ]
+              },
+              "use": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                ]
+              },
+              "energy": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                ]
+              },
+              "bpmMin": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 400
+              },
+              "bpmMax": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 400
+              },
+              "text": {
+                "type": "string",
+                "maxLength": 120
+              }
+            },
+            "additionalProperties": false
+          },
+          "at": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0
+              },
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 20
+              }
+            ],
+            "description": "Montage seconds, \"m:ss\", or a word key."
+          },
+          "untilSec": {
+            "description": "Where the piece stops, in montage seconds (after `at`); the mixer's fade-out lands there. Leave it out to play the whole track.",
+            "type": "number"
+          },
+          "expectedRevision": {
+            "description": "The editRevision you last read; a newer project gives a conflict and nothing is written.",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "projectId",
+          "at"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "title": "Add music",
         "readOnlyHint": false,
         "destructiveHint": false,
         "openWorldHint": false
@@ -2830,6 +5167,7 @@
     },
     {
       "name": "list_sfx",
+      "title": "List sound effects",
       "description": "The sound-effect library and the effects placed. `library`: each sound's id, name, category and length; `roles`: the role names add_sfx also takes (whoosh, pop, click, impact, typing…) and the sound each plays. `placed`: for each visual that carries effects, its id, its moment and each effect with its index (for remove_sfx), sound and montage second. In this app an effect rides on a visual (a scene, an image, a clip): it plays at a moment of that visual. Free.",
       "inputSchema": {
         "type": "object",
@@ -2846,6 +5184,7 @@
         "additionalProperties": false
       },
       "annotations": {
+        "title": "List sound effects",
         "readOnlyHint": true,
         "destructiveHint": false,
         "openWorldHint": false
@@ -2853,6 +5192,7 @@
     },
     {
       "name": "add_sfx",
+      "title": "Add sound effect",
       "description": "Add one sound effect at a moment: `at` is a word key or montage seconds, `sound` a role (whoosh, pop, click, impact, rise, ding, typing…) or a library id from list_sfx. The effect rides on the visual on screen at that moment (the top one, or `brollId`); the effects already there stay. No visual there: refused, because an effect plays with a visual in this app; draw a scene there first. `volume` 0 to 1 (default: the library's level). Free.",
       "inputSchema": {
         "type": "object",
@@ -2907,6 +5247,7 @@
         "additionalProperties": false
       },
       "annotations": {
+        "title": "Add sound effect",
         "readOnlyHint": false,
         "destructiveHint": false,
         "openWorldHint": false
@@ -2914,6 +5255,7 @@
     },
     {
       "name": "remove_sfx",
+      "title": "Remove sound effect",
       "description": "Remove sound effects from a visual: `index` (from list_sfx `placed`) removes one, `all: true` silences the visual. The others stay. Free.",
       "inputSchema": {
         "type": "object",
@@ -2949,6 +5291,7 @@
         "additionalProperties": false
       },
       "annotations": {
+        "title": "Remove sound effect",
         "readOnlyHint": false,
         "destructiveHint": false,
         "openWorldHint": false
@@ -2956,7 +5299,8 @@
     },
     {
       "name": "check_audio",
-      "description": "Hear the mix, by code: the voice's level measured on spoken passages of the source, then, in dB AGAINST THE VOICE, each music track in the pauses and under the voice (after its duck), with a verdict, and the sound effects whose peak jumps over the voice or that sit less than 0.5 s apart (the ear hears one). Two readings: `preview` (the voice as recorded) and `export` (with the export's volume option on, the voice alone is brought to -14 LUFS; music and effects stay where the mixer set them). Music sits well about 15 to 25 dB under the voice. Free: no model, no credit.",
+      "title": "Check audio",
+      "description": "Hear the mix, by code: the voice's level measured on spoken passages of the source, then, in dB AGAINST THE VOICE, each music track in the pauses and under the voice (after its duck), with a verdict, and the sound effects whose peak jumps over the voice or that sit less than 0.5 s apart (the ear hears one). Two readings: `preview` (the voice as recorded) and `export` (the voice after the export's chain: brought to -14 LUFS when voice is youtube, then its voiceVolumeDb, then the final limiter; music and effects stay where the mixer set them). Verdicts on music and effects use the export voice. `voice.afterChain` gives the export voice's estimated loudness (LUFS) and true peak (dBTP): `blocksExport` is true only when the voice would clip (true peak above -1 dBTP); fix that before export_video. Above -13 LUFS is a warning only (YouTube turns louder videos down to -14 LUFS). Music sits well about 15 to 25 dB under the voice. Free: no model, no credit.",
       "inputSchema": {
         "type": "object",
         "properties": {
@@ -2972,7 +5316,65 @@
         "additionalProperties": false
       },
       "annotations": {
+        "title": "Check audio",
         "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      }
+    },
+    {
+      "name": "move_sfx",
+      "title": "Move sound effect",
+      "description": "Move one sound effect already placed to a word or a montage second: `brollId` and `index` name it (list_sfx `placed`), `to` is a word key (it plays on that word's start) or montage seconds. Its sound and level stay. Within its visual only its moment changes; outside it, it moves to the visual on screen at `to` (the top one), in the same write. No visual there: refused. Free.",
+      "inputSchema": {
+        "type": "object",
+        "properties": {
+          "projectId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "brollId": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 64
+          },
+          "index": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          },
+          "to": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 0
+              },
+              {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 20
+              }
+            ],
+            "description": "A word key, \"m:ss\" or montage seconds."
+          },
+          "expectedRevision": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "projectId",
+          "brollId",
+          "index",
+          "to"
+        ],
+        "additionalProperties": false
+      },
+      "annotations": {
+        "title": "Move sound effect",
+        "readOnlyHint": false,
         "destructiveHint": false,
         "openWorldHint": false
       }

@@ -1,0 +1,13 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "com.brollss/brollss",
+  "title": "Brollss",
+  "description": "AI video editor: cut, B-roll scenes, captions, music and export, driven by your agent.",
+  "version": "1.14.1",
+  "remotes": [
+    {
+      "type": "streamable-http",
+      "url": "https://brollss.com/api/mcp"
+    }
+  ]
+}

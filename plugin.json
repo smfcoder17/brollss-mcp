@@ -1,7 +1,7 @@
 {
   "$schema": "https://agent-plugins.org/schemas/1.0.0/plugin.schema.json",
   "name": "brollss",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Import a video, cut it, zoom, draw scenes, add captions, music and sound effects, then check the edit in Brollss, from your agent.",
   "author": {
     "name": "Brollss"

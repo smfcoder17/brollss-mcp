@@ -8,7 +8,7 @@ description: Create a new Brollss project from a video or audio file (a file on 
 ## When to use
 
 - The user gives you a video or audio file, or a link to one, and wants it edited in Brollss.
-- The user wants a new Brollss project. To edit a project that already exists, use the edit-video skill instead.
+- The user wants a new Brollss project. To edit a project that already exists ("make a full edit of <video>"), use the edit-video skill instead: it finds the project with `list_projects` and edits a fresh copy made by `clone_project`.
 
 ## Instructions
 
